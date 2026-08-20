@@ -108,3 +108,24 @@ def jalnetra_optimizer_run_view(request):
     payload = request.data if isinstance(request.data, dict) else {}
     result, status_code = execute_optimization(payload)
     return Response(result, status=status_code)
+
+
+@api_view(["GET"])
+def jalnetra_trust_view(request, station_id):
+    from .services.jalnetra.trust_engine import evaluate_station_trust
+    df = _load_df()
+    station_df = df[df["station_id"] == station_id]
+    if station_df.empty:
+        return Response({"error": "station not found"}, status=404)
+    as_of = request.GET.get("as_of")
+    result = evaluate_station_trust(station_df, station_id, full_df=df, as_of=as_of)
+    return Response(result)
+
+
+@api_view(["GET"])
+def jalnetra_incidents_view(request):
+    from .services.jalnetra.incident_engine import detect_regional_incidents
+    df = _load_df()
+    as_of = request.GET.get("as_of")
+    incidents = detect_regional_incidents(df, as_of=as_of)
+    return Response(incidents)
