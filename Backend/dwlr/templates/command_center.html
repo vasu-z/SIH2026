@@ -463,11 +463,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     initCharts();
     populateStationSelect();
     updateGlobalUI();
-    loadIncidents();
-    loadPriority();
-    loadMonitoring();
-    loadForecast();
-    loadDbExplorer();
+    
+    // Auto-execute all engines so every tab has live rich data immediately
+    await Promise.all([
+        loadIncidents(),
+        loadPriority(),
+        loadMonitoring(),
+        loadForecast(),
+        loadDbExplorer(),
+        inspectStation('DWLR-001'),
+        runScenario(),
+        runOptimizer()
+    ]);
 });
 
 function switchTab(id) {
@@ -518,7 +525,7 @@ function renderMarkers() {
     cmdMap.fitBounds(bounds); gisMap.fitBounds(bounds);
 
     S.stations.forEach(st => {
-        const stData = S.waterData.filter(r => r.station_id === st.id);
+        const stData = S.waterData.filter(r => r.station_id === st.id).slice(0, S.replayDay + 1);
         const recent = stData.slice(-14);
         let color = '#10b981';
         if (recent.length >= 7) {
@@ -529,12 +536,12 @@ function renderMarkers() {
         }
 
         const m1 = L.circleMarker([st.lat, st.lon], {radius:7, fillColor:color, color:'#fff', weight:1.5, fillOpacity:0.85}).addTo(cmdMap);
-        m1.bindPopup(`<strong>${st.id}</strong><br>Lat: ${st.lat.toFixed(3)}, Lon: ${st.lon.toFixed(3)}`);
+        m1.bindPopup(`<strong>${st.id}</strong><br>Lat: ${st.lat.toFixed(3)}, Lon: ${st.lon.toFixed(3)}<br><button class="btn-sm primary" style="margin-top:4px;" onclick="inspectStation('${st.id}'); switchTab('map');">Inspect Well</button>`);
         cmdMarkers.push(m1);
 
         const m2 = L.circleMarker([st.lat, st.lon], {radius:8, fillColor:color, color:'#38bdf8', weight:2, fillOpacity:0.85}).addTo(gisMap);
         m2.on('click', () => inspectStation(st.id));
-        m2.bindPopup(`<strong>${st.id}</strong><br>Click to inspect`);
+        m2.bindPopup(`<strong>${st.id}</strong><br>Click to inspect telemetry`);
         gisMarkers.push(m2);
     });
 }
@@ -645,13 +652,31 @@ function renderIncidents() {
     }
     badge.textContent = `${S.incidents.length} ACTIVE`;
     el.innerHTML = S.incidents.map(inc => `
-        <div class="inc-card" onclick="showIncidentEvidence('${inc.incident_id}')">
+        <div class="inc-card" onclick="investigateIncident('${inc.incident_id}')">
             <div class="hdr"><span class="name">${inc.incident_id}</span><span class="sev sev-${inc.severity}">${inc.severity}</span></div>
             <div class="body">${inc.explanation || `${inc.station_count} stations, ${inc.persistence_days}d persistence, ${Math.round(inc.confidence*100)}% confidence`}</div>
-            <div style="font-size:0.62rem; color:var(--text-3); margin-top:0.2rem; font-family:var(--mono);">Stations: ${(inc.affected_stations||[]).join(', ')}</div>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:0.3rem;">
+                <span style="font-size:0.62rem; color:var(--text-3); font-family:var(--mono);">Stations: ${(inc.affected_stations||[]).join(', ')}</span>
+                <span class="btn-sm primary" style="padding:0.15rem 0.4rem; font-size:0.6rem;">🔍 Investigate</span>
+            </div>
         </div>
     `).join('');
     S.drawerEvidence.incidents = S.incidents;
+}
+
+function investigateIncident(incId) {
+    const inc = (S.incidents || []).find(i => i.incident_id === incId);
+    if (!inc) return;
+    switchTab('map');
+    if (inc.affected_stations && inc.affected_stations.length > 0) {
+        const firstStation = inc.affected_stations[0];
+        inspectStation(firstStation);
+        const st = S.stations.find(s => s.id === firstStation);
+        if (st && gisMap) {
+            gisMap.setView([st.lat, st.lon], 8);
+        }
+    }
+    openDrawer();
 }
 
 // ==================== PRIORITY / ACTIONS (FROM BACKEND) ====================
@@ -687,10 +712,21 @@ function renderActionQueue() {
         <div class="act-card">
             <div class="top"><span>${i+1}. ${r.region_name}</span><span style="color:var(--amber); font-family:var(--mono);">${r.priority_score}/100</span></div>
             <div class="desc">${(r.why_priority||[]).join('. ')}</div>
-            <div class="meta"><span>Trust: ${r.data_trust_score}</span><span>Stations: ${r.station_count}</span><span>${r.classification}</span></div>
+            <div class="meta" style="display:flex; justify-content:space-between; align-items:center;">
+                <span>Trust: ${r.data_trust_score} &bull; ${r.classification}</span>
+                <button class="btn-sm success" style="padding:0.15rem 0.4rem; font-size:0.6rem;" onclick="simulateAction('${r.region_id}', '${r.region_name}')">⚡ Simulate</button>
+            </div>
         </div>
     `).join('');
     S.drawerEvidence.priority = S.priority;
+}
+
+function simulateAction(regId, regName) {
+    switchTab('scenario');
+    document.getElementById('sl-pump').value = -30;
+    document.getElementById('sl-rech').value = 800;
+    onScenParam();
+    runScenario();
 }
 
 function renderMCDA() {
@@ -788,13 +824,11 @@ async function loadDbExplorer() {
         S.dbTotalPages = d.total_pages || 1;
         S.dbPage = d.page || 1;
 
-        // Render Pagination Info
         const startNum = d.matching_records > 0 ? (d.page - 1) * d.page_size + 1 : 0;
         const endNum = Math.min(d.matching_records, d.page * d.page_size);
         document.getElementById('pag-info').textContent = `Showing ${startNum} - ${endNum} of ${d.matching_records.toLocaleString()} matching SQLite records (Total: ${d.total_records.toLocaleString()})`;
         document.getElementById('pag-page-num').textContent = `Page ${d.page} of ${d.total_pages}`;
 
-        // Render Table Body
         const tbody = document.getElementById('db-explorer-tbody');
         if (!d.records || d.records.length === 0) {
             tbody.innerHTML = '<tr><td colspan="10" style="text-align:center; padding:1.5rem; color:var(--text-3);">No matching SQLite records found. Try clearing filters.</td></tr>';
@@ -1005,34 +1039,39 @@ async function loadForecast() {
             <strong style="color:var(--amber);">${sh.label}</strong>
         `;
 
-        if (mainChart) {
-            const stData = S.waterData.filter(r => r.station_id === stId).sort((a,b) => a.date.localeCompare(b.date));
-            const upToReplay = stData.slice(0, S.replayDay + 1);
-            const histLevels = upToReplay.map(r => r.water_level_m);
-            const histDates = upToReplay.map(r => r.date.slice(5));
-
-            const forecastDates = fc.p50 ? fc.p50.map((_,i) => `+${i+1}d`) : [];
-            const allLabels = [...histDates, ...forecastDates];
-
-            const histData = histLevels.map(v => v);
-            const p50Data = new Array(histLevels.length).fill(null).concat(fc.p50 || []);
-            const p90Data = new Array(histLevels.length).fill(null).concat(fc.p90 || []);
-            const p10Data = new Array(histLevels.length).fill(null).concat(fc.p10 || []);
-            const threshData = new Array(allLabels.length).fill(15.0);
-
-            while (histData.length < allLabels.length) histData.push(null);
-
-            mainChart.data.labels = allLabels;
-            mainChart.data.datasets[0].data = histData;
-            mainChart.data.datasets[1].data = p50Data;
-            mainChart.data.datasets[2].data = p90Data;
-            mainChart.data.datasets[3].data = p10Data;
-            mainChart.data.datasets[4].data = threshData;
-            mainChart.update();
-        }
+        updateForecastChart();
         S.drawerEvidence.forecast = fc;
         S.drawerEvidence.stressHorizon = sh;
     } catch(e) { console.error('Forecast load failed:', e); }
+}
+
+function updateForecastChart() {
+    if (!mainChart) return;
+    const stId = document.getElementById('fc-station')?.value || S.selectedStation;
+    const fc = S.forecast?.forecast || {};
+    const stData = S.waterData.filter(r => r.station_id === stId).sort((a,b) => a.date.localeCompare(b.date));
+    const upToReplay = stData.slice(0, S.replayDay + 1);
+    const histLevels = upToReplay.map(r => r.water_level_m);
+    const histDates = upToReplay.map(r => r.date.slice(5));
+
+    const forecastDates = fc.p50 ? fc.p50.map((_,i) => `+${i+1}d`) : [];
+    const allLabels = [...histDates, ...forecastDates];
+
+    const histData = histLevels.map(v => v);
+    const p50Data = new Array(histLevels.length).fill(null).concat(fc.p50 || []);
+    const p90Data = new Array(histLevels.length).fill(null).concat(fc.p90 || []);
+    const p10Data = new Array(histLevels.length).fill(null).concat(fc.p10 || []);
+    const threshData = new Array(allLabels.length).fill(15.0);
+
+    while (histData.length < allLabels.length) histData.push(null);
+
+    mainChart.data.labels = allLabels;
+    mainChart.data.datasets[0].data = histData;
+    mainChart.data.datasets[1].data = p50Data;
+    mainChart.data.datasets[2].data = p90Data;
+    mainChart.data.datasets[3].data = p10Data;
+    mainChart.data.datasets[4].data = threshData;
+    mainChart.update();
 }
 
 // ==================== SCENARIO (FROM BACKEND) ====================
@@ -1041,17 +1080,18 @@ function onScenParam() {
     document.getElementById('lbl-pump').textContent = `${document.getElementById('sl-pump').value}%`;
     document.getElementById('lbl-rech').textContent = document.getElementById('sl-rech').value;
     document.getElementById('lbl-dem').textContent = `${document.getElementById('sl-dem').value}%`;
+    debounce(runScenario, 400)();
 }
 
 async function runScenario() {
     const btn = document.getElementById('btn-scen');
-    btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Running...';
+    if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Running Simulation...'; }
     const mode = document.querySelector('input[name="sim-eng"]:checked')?.value || 'physics';
     const payload = {
-        mode, rainfall_change_pct: parseFloat(document.getElementById('sl-rain').value),
-        extraction_change_pct: parseFloat(document.getElementById('sl-pump').value),
-        recharge_change_pct: parseFloat(document.getElementById('sl-rech').value) / 25.0,
-        demand_change_pct: parseFloat(document.getElementById('sl-dem').value)
+        mode, rainfall_change_pct: parseFloat(document.getElementById('sl-rain')?.value || 0),
+        extraction_change_pct: parseFloat(document.getElementById('sl-pump')?.value || -20),
+        recharge_change_pct: parseFloat(document.getElementById('sl-rech')?.value || 500) / 25.0,
+        demand_change_pct: parseFloat(document.getElementById('sl-dem')?.value || -15)
     };
     try {
         const r = await fetch('/api/jalnetra/scenario/run/', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)});
@@ -1077,7 +1117,7 @@ async function runScenario() {
         }
         S.drawerEvidence.scenario = d;
     } catch(e) { document.getElementById('scen-runtime').textContent = `Error: ${e.message}`; }
-    finally { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-play"></i> Run Scenario'; }
+    finally { if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-play"></i> Run Scenario'; } }
 }
 
 // ==================== OPTIMIZER (FROM BACKEND) ====================
@@ -1085,21 +1125,23 @@ function onOptParam() {
     const b = parseInt(document.getElementById('sl-bgt').value);
     document.getElementById('lbl-bgt').textContent = `₹${(b/100000).toFixed(1)}L`;
     document.getElementById('lbl-teams').textContent = document.getElementById('sl-teams').value;
+    debounce(runOptimizer, 400)();
 }
 
 function onWeightChange() {
     document.getElementById('lbl-wh').textContent = `${document.getElementById('sl-wh').value}%`;
     document.getElementById('lbl-wp').textContent = `${document.getElementById('sl-wp').value}%`;
     document.getElementById('lbl-wv').textContent = `${document.getElementById('sl-wv').value}%`;
+    debounce(loadPriority, 400)();
 }
 
 async function runOptimizer() {
     const btn = document.getElementById('btn-opt');
-    btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Solving...';
+    if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Solving CP-SAT...'; }
     try {
         const r = await fetch('/api/jalnetra/optimizer/run/', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({
-            budget: parseInt(document.getElementById('sl-bgt').value),
-            team_capacity: parseInt(document.getElementById('sl-teams').value)
+            budget: parseInt(document.getElementById('sl-bgt')?.value || 5000000),
+            team_capacity: parseInt(document.getElementById('sl-teams')?.value || 3)
         })});
         S.optimizer = await r.json();
         const o = S.optimizer;
@@ -1117,7 +1159,7 @@ async function runOptimizer() {
         renderKPIs();
         S.drawerEvidence.optimizer = o;
     } catch(e) { document.getElementById('opt-portfolio').innerHTML = `<div class="err">${e.message}</div>`; }
-    finally { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-calculator"></i> Solve Portfolio'; }
+    finally { if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-calculator"></i> Solve Portfolio'; } }
 }
 
 // ==================== TECHNICAL TAB ====================
@@ -1228,6 +1270,10 @@ function onReplayChange() {
     document.getElementById('g-replay-day').textContent = S.replayDay + 1;
     document.getElementById('replay-slider').value = S.replayDay;
     renderMarkers();
+    updateForecastChart();
+    if (S.selectedStation) {
+        inspectStation(S.selectedStation);
+    }
 }
 </script>
 </body>
