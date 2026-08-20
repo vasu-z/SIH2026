@@ -7,7 +7,8 @@ from .views import (
     jalnetra_monitoring_priority_view, jalnetra_priority_view,
     jalnetra_unified_decision_view,
     system_overview_view, stations_summary_view, station_profile_view,
-    db_explorer_view, reset_database_view, export_csv_view
+    db_explorer_view, reset_database_view, export_csv_view,
+    live_sources_view, ingest_cgwb_live_view, prototype_showcase_view
 )
 
 router = DefaultRouter()
@@ -39,5 +40,8 @@ urlpatterns = [
     path('data/explorer/', db_explorer_view),
     path('data/reset-database/', reset_database_view),
     path('data/export-csv/', export_csv_view),
+    path('data/live-sources/', live_sources_view),
+    path('data/ingest/cgwb/', ingest_cgwb_live_view),
+    path('prototype/showcase/', prototype_showcase_view),
 ]
-
+

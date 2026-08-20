@@ -206,6 +206,7 @@
             <div class="panel-hdr">
                 <div class="panel-title"><i class="fa-solid fa-database"></i> SQLite Database Control & Live Telemetry Explorer</div>
                 <div style="display:flex; gap:0.4rem;">
+                    <button class="btn-sm success" onclick="syncCgwbLiveData()"><i class="fa-solid fa-cloud-arrow-down"></i> Sync CGWB Public Data</button>
                     <button class="btn-sm primary" onclick="openInjectModal()"><i class="fa-solid fa-bolt"></i> ⚡ Inject Reading / Spike</button>
                     <button class="btn-sm danger" onclick="resetDatabase()"><i class="fa-solid fa-rotate-left"></i> Reset SQLite DB</button>
                     <button class="btn-sm success" onclick="exportCSV()"><i class="fa-solid fa-download"></i> Download CSV</button>
@@ -250,6 +251,7 @@
                             <th onclick="toggleSort('rainfall_mm')">Rainfall (mm)</th>
                             <th onclick="toggleSort('ph')">pH</th>
                             <th>DO (mg/L)</th>
+                            <th>Source</th>
                             <th>Action</th>
                         </tr>
                     </thead>
@@ -433,14 +435,14 @@
     </div>
 
     <footer>
-        <div><i class="fa-solid fa-shield-halved"></i> DATA_STATUS: VERIFIED SQLITE DATABASE &bull; COORDINATE_STATUS: DEMONSTRATION</div>
+        <div id="footer-source"><i class="fa-solid fa-shield-halved"></i> DATA_STATUS: LOADING</div>
         <div id="footer-engines">—</div>
     </footer>
 
 <script>
 // ==================== GLOBAL STATE ====================
 const S = {
-    waterData: [], stations: [], overview: null, incidents: null,
+    waterData: [], stations: [], overview: null, liveSources: null, incidents: null,
     priority: null, optimizer: null, monitoring: null, forecast: null,
     selectedStation: 'DWLR-001', replayDay: 364, playing: false, playInterval: null,
     dates: [], drawerEvidence: {}, dbPage: 1, dbTotalPages: 1, dbPageSize: 50
@@ -459,7 +461,7 @@ function debounce(func, timeout = 300) { return (...args) => { clearTimeout(debo
 // ==================== INIT ====================
 document.addEventListener('DOMContentLoaded', async () => {
     initMaps();
-    await Promise.all([fetchWaterData(), fetchOverview()]);
+    await Promise.all([fetchWaterData(), fetchOverview(), fetchLiveSources()]);
     initCharts();
     populateStationSelect();
     updateGlobalUI();
@@ -496,6 +498,16 @@ async function fetchWaterData() {
         const m = new Map();
         S.waterData.forEach(r => { if (!m.has(r.station_id)) m.set(r.station_id, {id:r.station_id, lat:r.lat, lon:r.lon}); });
         S.stations = Array.from(m.values());
+        const dates = Array.from(new Set(S.waterData.map(r => r.date))).sort();
+        if (dates.length) {
+            S.dates = dates;
+            S.replayDay = dates.length - 1;
+            const slider = document.getElementById('replay-slider');
+            if (slider) {
+                slider.max = Math.max(0, dates.length - 1);
+                slider.value = S.replayDay;
+            }
+        }
     } catch(e) { console.error('Failed to fetch water data:', e); }
 }
 
@@ -504,6 +516,13 @@ async function fetchOverview() {
         const r = await fetch('/api/system/overview/');
         S.overview = await r.json();
     } catch(e) { console.error('Failed to fetch overview:', e); }
+}
+
+async function fetchLiveSources() {
+    try {
+        const r = await fetch('/api/data/live-sources/');
+        S.liveSources = await r.json();
+    } catch(e) { console.error('Failed to fetch live source status:', e); }
 }
 
 // ==================== MAPS ====================
@@ -594,6 +613,8 @@ function updateGlobalUI() {
         renderKPIs(); renderEngineHealth(); renderDataTab(); renderPipelineStatus();
         const engNames = Object.entries(S.overview.engines||{}).filter(([k,v])=>v.status==='OPERATIONAL').map(([k])=>k.toUpperCase().replace(/_/g,' '));
         document.getElementById('footer-engines').textContent = engNames.join(' • ');
+        const ls = S.liveSources || {};
+        document.getElementById('footer-source').innerHTML = `<i class="fa-solid fa-shield-halved"></i> DATA_STATUS: ${ls.mode || S.overview.data_mode} &bull; LIVE_RECORDS: ${ls.live_records ?? '—'} &bull; SYNTHETIC_RECORDS: ${ls.synthetic_records ?? '—'}`;
     }
     renderMarkers();
 }
@@ -789,13 +810,16 @@ function renderDataTab() {
         <div class="prov-item"><span class="k">Coverage</span><span class="v">${db.coverage_pct}%</span></div>
         <div class="prov-item"><span class="k">Database Engine</span><span class="v">${db.engine}</span></div>
         <div class="prov-item"><span class="k">Replay Date</span><span class="v">${curDate()}</span></div>
-        <div class="prov-item"><span class="k">Replay Day</span><span class="v">${S.replayDay+1} / 365</span></div>
+        <div class="prov-item"><span class="k">Replay Day</span><span class="v">${S.replayDay+1} / ${S.dates.length || 0}</span></div>
     `;
     document.getElementById('provenance-panel').innerHTML = `
         <div class="prov-item"><span class="k">Data Mode</span><span class="v">${S.overview.data_mode}</span></div>
         <div class="prov-item"><span class="k">Source</span><span class="v" style="font-size:0.58rem; max-width:280px;">${prov.source}</span></div>
         <div class="prov-item"><span class="k">Generation</span><span class="v" style="font-size:0.58rem;">${prov.generation_method}</span></div>
         <div class="prov-item"><span class="k">Coordinates</span><span class="v">${prov.coordinate_status}</span></div>
+        <div class="prov-item"><span class="k">Live Records</span><span class="v">${S.liveSources?.live_records ?? 0}</span></div>
+        <div class="prov-item"><span class="k">Synthetic Records</span><span class="v">${S.liveSources?.synthetic_records ?? 0}</span></div>
+        <div class="prov-item"><span class="k">Primary Live Source</span><span class="v" style="font-size:0.58rem;">${S.liveSources?.available_sources?.[0]?.name || 'Not synced yet'}</span></div>
     `;
 }
 
@@ -831,7 +855,7 @@ async function loadDbExplorer() {
 
         const tbody = document.getElementById('db-explorer-tbody');
         if (!d.records || d.records.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="10" style="text-align:center; padding:1.5rem; color:var(--text-3);">No matching SQLite records found. Try clearing filters.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="11" style="text-align:center; padding:1.5rem; color:var(--text-3);">No matching SQLite records found. Try clearing filters.</td></tr>';
             return;
         }
 
@@ -842,10 +866,11 @@ async function loadDbExplorer() {
                 <td style="font-size:0.64rem; color:var(--text-3);">${r.lat.toFixed(2)}, ${r.lon.toFixed(2)}</td>
                 <td>${r.date}</td>
                 <td style="color:${r.water_level_m > 15 ? 'var(--red)' : r.water_level_m > 11 ? 'var(--amber)' : 'var(--text-1)'}; font-weight:700;">${r.water_level_m.toFixed(2)} m</td>
-                <td>${r.temperature_c} °C</td>
-                <td>${r.rainfall_mm} mm</td>
-                <td>${r.ph}</td>
-                <td>${r.dissolved_oxygen_mg_l} mg/L</td>
+                <td>${r.temperature_c === null ? 'N/A' : r.temperature_c + ' °C'}</td>
+                <td>${r.rainfall_mm === null ? 'N/A' : r.rainfall_mm + ' mm'}</td>
+                <td>${r.ph === null ? 'N/A' : r.ph}</td>
+                <td>${r.dissolved_oxygen_mg_l === null ? 'N/A' : r.dissolved_oxygen_mg_l + ' mg/L'}</td>
+                <td style="font-size:0.62rem; color:${r.is_live_source ? 'var(--green)' : 'var(--amber)'};">${r.is_live_source ? 'PUBLIC' : 'DEMO'}<br><span style="color:var(--text-3);">${r.source || '—'}</span></td>
                 <td>
                     <button class="btn-sm danger" style="padding:0.1rem 0.35rem; font-size:0.6rem;" onclick="deleteRecord(${r.id})"><i class="fa-solid fa-trash"></i></button>
                 </td>
@@ -876,6 +901,15 @@ function resetDbFilters() {
     loadDbExplorer();
 }
 
+function toggleSort(field) {
+    const sortEl = document.getElementById('db-sort');
+    if (!sortEl) return;
+    const current = sortEl.value;
+    sortEl.value = current === field ? `-${field}` : field;
+    S.dbPage = 1;
+    loadDbExplorer();
+}
+
 function exportCSV() {
     const station = document.getElementById('db-filter-station')?.value || 'ALL';
     window.location.href = `/api/data/export-csv/?station_id=${station}`;
@@ -887,7 +921,7 @@ async function resetDatabase() {
         const r = await fetch('/api/data/reset-database/', {method:'POST'});
         const d = await r.json();
         alert(d.message);
-        await Promise.all([fetchWaterData(), fetchOverview()]);
+        await Promise.all([fetchWaterData(), fetchOverview(), fetchLiveSources()]);
         updateGlobalUI();
         loadDbExplorer();
         loadIncidents();
@@ -895,11 +929,31 @@ async function resetDatabase() {
     } catch(e) { alert('Failed to reset database: ' + e.message); }
 }
 
+async function syncCgwbLiveData() {
+    if (!confirm('Sync public CGWB groundwater observations into SQLite? Existing synthetic data will remain, and imported rows will be labeled PUBLIC_SOURCE.')) return;
+    try {
+        const r = await fetch('/api/data/ingest/cgwb/', {
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({limit: 1000, replace_live: true})
+        });
+        const d = await r.json();
+        if (!r.ok) throw new Error(d.message || d.error || 'CGWB sync failed');
+        alert(`CGWB sync complete. Created ${d.created}, updated ${d.updated}.`);
+        await Promise.all([fetchWaterData(), fetchOverview(), fetchLiveSources()]);
+        populateStationSelect();
+        updateGlobalUI();
+        await Promise.all([loadDbExplorer(), loadIncidents(), loadPriority(), loadMonitoring(), loadForecast()]);
+    } catch(e) {
+        alert('CGWB public data sync failed: ' + e.message);
+    }
+}
+
 async function deleteRecord(id) {
     if (!confirm(`Delete SQLite record #${id}?`)) return;
     try {
         await fetch(`/api/water-quality/${id}/`, {method:'DELETE'});
-        await Promise.all([fetchWaterData(), fetchOverview()]);
+        await Promise.all([fetchWaterData(), fetchOverview(), fetchLiveSources()]);
         updateGlobalUI();
         loadDbExplorer();
     } catch(e) { alert('Failed to delete record: ' + e.message); }
@@ -944,13 +998,17 @@ async function submitTelemetryInject() {
             body: JSON.stringify({
                 station_id: stId, lat: st.lat, lon: st.lon, date: date,
                 water_level_m: level, temperature_c: temp, rainfall_mm: rain,
-                ph: ph, dissolved_oxygen_mg_l: 6.5
+                ph: ph, dissolved_oxygen_mg_l: 6.5,
+                source: 'MANUAL_TELEMETRY_INJECTION',
+                source_agency: 'LOCAL_OPERATOR',
+                is_live_source: false,
+                data_quality: 'MANUAL_TEST'
             })
         });
         if (r.ok) {
             closeInjectModal();
-            alert(`⚡ Live Reading Injected into SQLite DB for ${stId} on ${date}!`);
-            await Promise.all([fetchWaterData(), fetchOverview()]);
+            alert(`Reading inserted into SQLite DB for ${stId} on ${date}.`);
+            await Promise.all([fetchWaterData(), fetchOverview(), fetchLiveSources()]);
             updateGlobalUI();
             loadDbExplorer();
             loadIncidents();

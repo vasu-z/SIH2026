@@ -1,40 +1,34 @@
 import React, { useEffect, useState } from 'react';
-import { ScrollView, View, ActivityIndicator, RefreshControl } from 'react-native';
+import { ActivityIndicator, Dimensions, RefreshControl, ScrollView, View } from 'react-native';
 import { LineChart } from 'react-native-chart-kit';
-import { Dimensions } from 'react-native';
-import axios from 'axios';
 import { Ionicons } from '@expo/vector-icons';
 import tw from '@/constants/tailwind';
+import { apiGet, PrototypeShowcase, SystemOverview, WaterQualityData } from '@/lib/api';
 
 import ParallaxScrollView from '@/components/ParallaxScrollView';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 // No need to import useColorScheme as we're using light mode only
 
-const API_URL = 'http://127.0.0.1:8000/api/water-quality/';
-
-interface WaterQualityData {
-  id: number;
-  date: string;
-  water_level_m: number;
-  temperature_c: number;
-  rainfall_mm: number;
-  ph: string;
-  dissolved_oxygen_mg_l: number;
-}
-
 export default function DashboardScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [waterData, setWaterData] = useState<WaterQualityData[]>([]);
+  const [overview, setOverview] = useState<SystemOverview | null>(null);
+  const [showcase, setShowcase] = useState<PrototypeShowcase | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const colorScheme = 'light'; // Always use light mode
-  
+
   const fetchData = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(API_URL);
-      setWaterData(response.data);
+      const [records, systemOverview, showcaseData] = await Promise.all([
+        apiGet<WaterQualityData[]>('/water-quality/?include_synthetic=1'),
+        apiGet<SystemOverview>('/system/overview/'),
+        apiGet<PrototypeShowcase>('/prototype/showcase/'),
+      ]);
+      setWaterData(records);
+      setOverview(systemOverview);
+      setShowcase(showcaseData);
       setError(null);
     } catch (err) {
       console.error('Error fetching data:', err);
@@ -62,8 +56,8 @@ export default function DashboardScreen() {
   const averageWaterLevel = recentData.length > 0 
     ? recentData.reduce((sum, record) => sum + record.water_level_m, 0) / recentData.length 
     : 0;
-  const currentRainfall = recentData.length > 0 ? recentData[recentData.length - 1].rainfall_mm : 0;
-  const currentTemp = recentData.length > 0 ? recentData[recentData.length - 1].temperature_c : 0;
+  const currentRainfall = recentData.length > 0 ? recentData[recentData.length - 1].rainfall_mm : null;
+  const currentTemp = recentData.length > 0 ? recentData[recentData.length - 1].temperature_c : null;
   
   // Prepare chart data
   const waterLevelData = {
@@ -98,23 +92,18 @@ export default function DashboardScreen() {
   // Card for stats
   const StatsCard = ({ title, value, unit, icon, trend = null }: { 
     title: string, 
-    value: number, 
+    value: number | null,
     unit: string, 
     icon: any,
     trend?: "up" | "down" | "steady" | null 
   }) => {
     let trendIcon = null;
-    let trendColorClass = "";
-    
     if (trend === "up") {
       trendIcon = <Ionicons name="arrow-up" size={16} color="#E74C3C" />;
-      trendColorClass = "text-red-500";
     } else if (trend === "down") {
       trendIcon = <Ionicons name="arrow-down" size={16} color="#2ECC71" />;
-      trendColorClass = "text-green-500";
     } else if (trend === "steady") {
       trendIcon = <Ionicons name="remove" size={16} color="#3498DB" />;
-      trendColorClass = "text-blue-500";
     }
 
     return (
@@ -126,7 +115,7 @@ export default function DashboardScreen() {
           <ThemedText type="defaultSemiBold" style={tw`text-sm opacity-80`}>{title}</ThemedText>
           <View style={tw`flex-row items-center`}>
             <ThemedText style={tw`text-base font-bold mt-0.5`}>
-              {value.toFixed(2)} {unit}
+              {value === null || Number.isNaN(value) ? 'N/A' : `${value.toFixed(2)} ${unit}`}
             </ThemedText>
             {trendIcon && <View style={tw`ml-1.5`}>{trendIcon}</View>}
           </View>
@@ -160,6 +149,53 @@ export default function DashboardScreen() {
           <ThemedView style={tw`mb-4`}>
             <ThemedText type="title">Groundwater Dashboard</ThemedText>
           </ThemedView>
+
+          {showcase && (
+            <>
+              <ThemedText style={tw`text-lg font-semibold mt-2 mb-3 px-4`}>Backend Power Stack</ThemedText>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={tw`px-2`}>
+                <StatsCard
+                  title="CGWB Public"
+                  value={showcase.public_data.record_count}
+                  unit="rows"
+                  icon={<Ionicons name="cloud-done" size={24} color="#10B981" />}
+                />
+                <StatsCard
+                  title="DWLR Lab"
+                  value={showcase.model_lab.record_count}
+                  unit="rows"
+                  icon={<Ionicons name="server" size={24} color="#6366F1" />}
+                />
+                <StatsCard
+                  title="Trust Score"
+                  value={showcase.models.trust.trust_score}
+                  unit="/100"
+                  icon={<Ionicons name="shield-checkmark" size={24} color="#3498DB" />}
+                />
+                <StatsCard
+                  title="Ridge MAE"
+                  value={showcase.models.forecast.mae}
+                  unit="m"
+                  icon={<Ionicons name="analytics" size={24} color="#E67E22" />}
+                />
+              </ScrollView>
+
+              <ThemedView style={tw`rounded-xl p-4 mx-4 my-3 shadow-sm bg-white dark:bg-gray-800`}>
+                <View style={tw`flex-row items-center mb-2`}>
+                  <Ionicons name="git-branch" size={22} color="#10B981" />
+                  <ThemedText type="defaultSemiBold" style={tw`ml-2 text-base`}>
+                    End-to-End Model Pipeline
+                  </ThemedText>
+                </View>
+                <ThemedText style={tw`text-sm leading-5`}>
+                  Public CGWB field data: {showcase.public_data.station_count} stations, {showcase.public_data.date_range.start} to {showcase.public_data.date_range.end}. Model lab: {showcase.model_lab.station_count} DWLR stations over {showcase.model_lab.date_range.start} to {showcase.model_lab.date_range.end}.
+                </ThemedText>
+                <ThemedText style={tw`text-sm leading-5 mt-2`}>
+                  Forecast: {showcase.models.forecast.model} ({showcase.models.forecast.status}), Trend: {showcase.models.trend.trend_direction} {showcase.models.trend.sen_slope_m_per_year} m/year, Optimizer: {showcase.models.optimizer.selected_interventions.length} interventions selected.
+                </ThemedText>
+              </ThemedView>
+            </>
+          )}
           
           <ThemedText style={tw`text-lg font-semibold mt-6 mb-3 px-4`}>Current Readings</ThemedText>
           
@@ -210,6 +246,15 @@ export default function DashboardScreen() {
                 : waterLevelTrend === "down"
                 ? "Water levels are declining. Monitor usage patterns closely."
                 : "Water levels are stable at the moment."}
+            </ThemedText>
+          </ThemedView>
+
+          <ThemedView style={tw`rounded-xl p-4 mx-4 my-2 flex-row items-center shadow-sm bg-white dark:bg-gray-800`}>
+            <View style={tw`mr-3`}>
+              <Ionicons name="shield-checkmark" size={24} color={overview?.database.live_records ? "#10B981" : "#F59E0B"} />
+            </View>
+            <ThemedText style={tw`flex-1 text-sm leading-5`}>
+              Data mode: {overview?.data_mode || 'Unknown'} · Live public records: {overview?.database.live_records ?? 0} · Total records: {overview?.database.total_records ?? waterData.length}
             </ThemedText>
           </ThemedView>
         </>

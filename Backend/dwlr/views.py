@@ -12,22 +12,45 @@ from .services.optimizer import optimize
 
 
 class WaterQualityRecordViewSet(viewsets.ModelViewSet):
-    queryset = WaterQualityRecord.objects.all()
     serializer_class = WaterQualityRecordSerializer
 
+    def get_queryset(self):
+        qs = WaterQualityRecord.objects.all()
+        include_synthetic = self.request.query_params.get("include_synthetic") in ["1", "true", "yes"]
+        if include_synthetic:
+            return qs
+        live_qs = qs.filter(is_live_source=True)
+        return live_qs if live_qs.exists() else qs
 
-def _load_df():
-    qs = WaterQualityRecord.objects.all().values(
+
+def _active_records_qs(include_synthetic=False):
+    qs = WaterQualityRecord.objects.all()
+    if include_synthetic:
+        return qs
+    live_qs = qs.filter(is_live_source=True)
+    return live_qs if live_qs.exists() else qs
+
+
+def _load_df(include_synthetic=False):
+    qs = _active_records_qs(include_synthetic=include_synthetic).values(
         "station_id", "lat", "lon", "date", "water_level_m",
-        "temperature_c", "rainfall_mm", "ph", "dissolved_oxygen_mg_l"
+        "temperature_c", "rainfall_mm", "ph", "dissolved_oxygen_mg_l",
+        "source", "source_agency", "is_live_source", "data_quality"
     )
     df = pd.DataFrame(list(qs))
-    df["ph"] = df["ph"].astype(float)
+    if df.empty:
+        return df
+    df["ph"] = pd.to_numeric(df["ph"], errors="coerce")
+    df["temperature_c"] = pd.to_numeric(df["temperature_c"], errors="coerce")
+    df["rainfall_mm"] = pd.to_numeric(df["rainfall_mm"], errors="coerce")
+    df["dissolved_oxygen_mg_l"] = pd.to_numeric(df["dissolved_oxygen_mg_l"], errors="coerce")
     return df
 
 
 def _latest_with_trend():
     df = _load_df()
+    if df.empty:
+        return df
     df = df.sort_values("date")
     trends = df.groupby("station_id")["water_level_m"].apply(
         lambda s: s.diff().mean()
@@ -223,7 +246,7 @@ def system_overview_view(request):
     as_of = request.GET.get("as_of")
 
     # Database statistics — all computed
-    qs = WaterQualityRecord.objects
+    qs = _active_records_qs(include_synthetic=request.GET.get("include_synthetic") in ["1", "true", "yes"])
     if as_of:
         qs = qs.filter(date__lte=as_of)
 
@@ -236,12 +259,20 @@ def system_overview_view(request):
         avg_level=Avg("water_level_m")
     )
     station_ids = list(qs.values_list("station_id", flat=True).distinct())
+    all_records = WaterQualityRecord.objects.count()
+    all_live_records = WaterQualityRecord.objects.filter(is_live_source=True).count()
+    all_synthetic_records = all_records - all_live_records
+    live_records = qs.filter(is_live_source=True).count()
+    synthetic_records = qs.filter(is_live_source=False).count()
+    source_agencies = list(qs.values_list("source_agency", flat=True).distinct())
+    data_mode = "PUBLIC_SOURCE" if live_records else "REPLAY / DEMONSTRATION"
+    coordinate_status = "PUBLIC_SOURCE" if live_records else "DEMONSTRATION"
     station_count = len(station_ids)
     date_min = str(agg["d_min"])
     date_max = str(agg["d_max"])
     date_span_days = (agg["d_max"] - agg["d_min"]).days + 1 if agg["d_min"] and agg["d_max"] else 0
     expected_records = station_count * date_span_days
-    coverage_pct = round((total_records / max(1, expected_records)) * 100.0, 1)
+    coverage_pct = min(100.0, round((total_records / max(1, expected_records)) * 100.0, 1))
 
     # Engine availability — computed, not assumed
     engines = {
@@ -278,10 +309,15 @@ def system_overview_view(request):
 
     return Response({
         "status": "VERIFIED",
-        "data_mode": "REPLAY / DEMONSTRATION",
+        "data_mode": data_mode,
         "database": {
             "engine": "SQLite",
             "total_records": total_records,
+            "live_records": live_records,
+            "synthetic_records": synthetic_records,
+            "all_records": all_records,
+            "all_live_records": all_live_records,
+            "all_synthetic_records": all_synthetic_records,
             "station_count": station_count,
             "date_range": {"start": date_min, "end": date_max},
             "date_span_days": date_span_days,
@@ -297,9 +333,10 @@ def system_overview_view(request):
         "station_ids": sorted(station_ids),
         "as_of": as_of,
         "provenance": {
-            "source": "REPOSITORY DEMONSTRATION DATA — SOURCE PROVENANCE NOT VERIFIED",
-            "generation_method": "seed_stations management command (numpy RNG seed=42)",
-            "coordinate_status": "DEMONSTRATION",
+            "source": "PUBLIC CGWB/INDIA-WRIS SOURCE + LOCAL SQLITE CACHE" if live_records else "REPOSITORY DEMONSTRATION DATA — SOURCE PROVENANCE NOT VERIFIED",
+            "generation_method": "public-source ingestion endpoint" if live_records else "seed_stations management command (numpy RNG seed=42)",
+            "coordinate_status": coordinate_status,
+            "source_agencies": source_agencies,
         }
     })
 
@@ -311,7 +348,7 @@ def stations_summary_view(request):
     from django.db.models import Count, Min, Max, Avg
 
     as_of = request.GET.get("as_of")
-    qs = WaterQualityRecord.objects
+    qs = _active_records_qs(include_synthetic=request.GET.get("include_synthetic") in ["1", "true", "yes"])
     if as_of:
         qs = qs.filter(date__lte=as_of)
 
@@ -388,7 +425,7 @@ def station_profile_view(request, station_id):
 
     # History (last 30 records)
     recent = station_df.tail(30)
-    history_30d = recent[["date", "water_level_m", "rainfall_mm", "temperature_c"]].to_dict("records")
+    history_30d = recent[["date", "water_level_m", "rainfall_mm", "temperature_c", "source", "data_quality"]].to_dict("records")
 
     # Trust
     trust_result = evaluate_station_trust(station_df, station_id, full_df=df, as_of=as_of)
@@ -450,7 +487,13 @@ def station_profile_view(request, station_id):
             "label": "MODELED INDICATOR — NOT AN OFFICIAL REGULATORY DEADLINE",
         },
         "status": "VERIFIED",
-        "coordinate_status": "DEMONSTRATION",
+        "coordinate_status": "PUBLIC_SOURCE" if bool(latest.get("is_live_source")) else "DEMONSTRATION",
+        "provenance": {
+            "source": latest.get("source"),
+            "agency": latest.get("source_agency"),
+            "data_quality": latest.get("data_quality"),
+            "is_live_source": bool(latest.get("is_live_source")),
+        },
     })
 
 
@@ -465,7 +508,7 @@ def db_explorer_view(request):
     """
     from django.db.models import Q
 
-    qs = WaterQualityRecord.objects.all()
+    qs = _active_records_qs(include_synthetic=request.GET.get("include_synthetic") in ["1", "true", "yes"])
     total_records = qs.count()
 
     station_id = request.GET.get("station_id")
@@ -499,7 +542,11 @@ def db_explorer_view(request):
             pass
 
     ordering = request.GET.get("ordering", "-date")
-    valid_orderings = ["date", "-date", "water_level_m", "-water_level_m", "station_id", "-station_id", "ph", "-ph", "rainfall_mm", "-rainfall_mm"]
+    valid_orderings = [
+        "date", "-date", "water_level_m", "-water_level_m", "station_id", "-station_id",
+        "ph", "-ph", "rainfall_mm", "-rainfall_mm", "temperature_c", "-temperature_c",
+        "dissolved_oxygen_mg_l", "-dissolved_oxygen_mg_l", "id", "-id"
+    ]
     if ordering in valid_orderings:
         qs = qs.order_by(ordering)
     else:
@@ -535,15 +582,16 @@ def db_explorer_view(request):
 
     records = list(page_qs.values(
         "id", "station_id", "lat", "lon", "date", "water_level_m",
-        "temperature_c", "rainfall_mm", "ph", "dissolved_oxygen_mg_l"
+        "temperature_c", "rainfall_mm", "ph", "dissolved_oxygen_mg_l",
+        "source", "source_agency", "is_live_source", "data_quality"
     ))
 
     # Convert date to string for JSON serialization
     for r in records:
         r["date"] = str(r["date"])
-        r["ph"] = float(r["ph"])
+        r["ph"] = float(r["ph"]) if r["ph"] is not None else None
 
-    all_stations = list(WaterQualityRecord.objects.values_list("station_id", flat=True).distinct().order_by("station_id"))
+    all_stations = list(qs.values_list("station_id", flat=True).distinct().order_by("station_id"))
 
     return Response({
         "status": "VERIFIED",
@@ -584,7 +632,12 @@ def reset_database_view(request):
                 temperature_c=round(rng.uniform(18, 32), 1),
                 rainfall_mm=round(max(0, rng.normal(4, 6)), 1),
                 ph=Decimal(str(round(rng.uniform(6.5, 8.2), 2))),
-                dissolved_oxygen_mg_l=round(rng.uniform(4, 9), 2)
+                dissolved_oxygen_mg_l=round(rng.uniform(4, 9), 2),
+                source="SYNTHETIC_SEED",
+                source_agency="REPOSITORY_DEMO",
+                source_url="",
+                is_live_source=False,
+                data_quality="DEMONSTRATION"
             ))
     WaterQualityRecord.objects.bulk_create(objs)
     return Response({
@@ -603,7 +656,7 @@ def export_csv_view(request):
     import csv
     from django.http import HttpResponse
 
-    qs = WaterQualityRecord.objects.all().order_by("station_id", "date")
+    qs = _active_records_qs(include_synthetic=request.GET.get("include_synthetic") in ["1", "true", "yes"]).order_by("station_id", "date")
     station_id = request.GET.get("station_id")
     if station_id and station_id != "ALL":
         qs = qs.filter(station_id=station_id)
@@ -612,14 +665,152 @@ def export_csv_view(request):
     response["Content-Disposition"] = 'attachment; filename="jalnetra_dwlr_telemetry.csv"'
 
     writer = csv.writer(response)
-    writer.writerow(["ID", "Station_ID", "Latitude", "Longitude", "Date", "Water_Level_m", "Temperature_C", "Rainfall_mm", "pH", "Dissolved_Oxygen_mg_l"])
+    writer.writerow(["ID", "Station_ID", "Latitude", "Longitude", "Date", "Water_Level_m", "Temperature_C", "Rainfall_mm", "pH", "Dissolved_Oxygen_mg_l", "Source", "Agency", "Quality", "Is_Live_Source"])
 
     for r in qs:
-        writer.writerow([r.id, r.station_id, r.lat, r.lon, str(r.date), r.water_level_m, r.temperature_c, r.rainfall_mm, float(r.ph), r.dissolved_oxygen_mg_l])
+        writer.writerow([r.id, r.station_id, r.lat, r.lon, str(r.date), r.water_level_m, r.temperature_c, r.rainfall_mm, float(r.ph) if r.ph is not None else "", r.dissolved_oxygen_mg_l, r.source, r.source_agency, r.data_quality, r.is_live_source])
 
     return response
 
 
+@api_view(["GET"])
+def live_sources_view(request):
+    from .services.live_sources import source_status
+    return Response(source_status())
+
+
+@api_view(["POST"])
+def ingest_cgwb_live_view(request):
+    from .services.live_sources import ingest_cgwb_depth_to_water
+    payload = request.data if isinstance(request.data, dict) else {}
+    limit = int(payload.get("limit", request.GET.get("limit", 500)))
+    state = payload.get("state", request.GET.get("state", ""))
+    replace_live = bool(payload.get("replace_live", False))
+    historical_dates = int(payload.get("historical_dates", request.GET.get("historical_dates", 10)))
+    try:
+        return Response(ingest_cgwb_depth_to_water(
+            limit=limit,
+            state=state,
+            replace_live=replace_live,
+            historical_dates=historical_dates
+        ))
+    except Exception as exc:
+        return Response({
+            "status": "SOURCE_UNAVAILABLE",
+            "error": str(exc),
+            "message": "Public CGWB source could not be reached or parsed. Existing SQLite data was not modified.",
+        }, status=503)
+
+
+@api_view(["GET"])
+def prototype_showcase_view(request):
+    """
+    One payload for the frontend: public-source reality + model telemetry lab.
+
+    Public CGWB data is authoritative field data, but often sparse by station. The 7,300-row
+    DWLR telemetry set is retained as a model lab so forecast/trust/incident/optimizer engines
+    can visibly run end-to-end instead of looking empty in the app.
+    """
+    from django.db.models import Count, Min, Max, Avg
+    from .services.live_sources import source_status
+    from .services.jalnetra.trust_engine import evaluate_station_trust
+    from .services.jalnetra.incident_engine import detect_regional_incidents
+    from .services.jalnetra.priority_engine import evaluate_intervention_priorities
+    from .services.jalnetra.monitoring_engine import evaluate_monitoring_priorities
+    from .services.jalnetra.scenario_engine import execute_scenario
+    from .services.jalnetra.optimizer_engine import execute_optimization
+    from .services.forecast_engine import forecast_ridge
+    from .services.adapters.trend_adapter import TrendAdapter
+
+    live_qs = WaterQualityRecord.objects.filter(is_live_source=True)
+    lab_qs = WaterQualityRecord.objects.filter(is_live_source=False)
+
+    live_summary = {
+        "record_count": live_qs.count(),
+        "station_count": live_qs.values("station_id").distinct().count(),
+        "date_range": live_qs.aggregate(start=Min("date"), end=Max("date")),
+        "avg_depth_m": round(float(live_qs.aggregate(v=Avg("water_level_m"))["v"] or 0), 2),
+        "latest_records": list(live_qs.order_by("-date", "station_id").values(
+            "station_id", "lat", "lon", "date", "water_level_m", "source_agency", "data_quality"
+        )[:8]),
+    }
+    live_summary["date_range"] = {
+        "start": str(live_summary["date_range"]["start"]) if live_summary["date_range"]["start"] else None,
+        "end": str(live_summary["date_range"]["end"]) if live_summary["date_range"]["end"] else None,
+    }
+
+    lab_summary = {
+        "record_count": lab_qs.count(),
+        "station_count": lab_qs.values("station_id").distinct().count(),
+        "date_range": lab_qs.aggregate(start=Min("date"), end=Max("date")),
+        "avg_depth_m": round(float(lab_qs.aggregate(v=Avg("water_level_m"))["v"] or 0), 2),
+    }
+    lab_summary["date_range"] = {
+        "start": str(lab_summary["date_range"]["start"]) if lab_summary["date_range"]["start"] else None,
+        "end": str(lab_summary["date_range"]["end"]) if lab_summary["date_range"]["end"] else None,
+    }
+
+    lab_df = pd.DataFrame(list(lab_qs.values(
+        "station_id", "lat", "lon", "date", "water_level_m",
+        "temperature_c", "rainfall_mm", "ph", "dissolved_oxygen_mg_l",
+        "source", "source_agency", "is_live_source", "data_quality"
+    )))
+    if lab_df.empty:
+        return Response({
+            "status": "NO_MODEL_LAB_DATA",
+            "sources": source_status(),
+            "public_data": live_summary,
+            "model_lab": lab_summary,
+            "models": {},
+        })
+
+    lab_df["ph"] = pd.to_numeric(lab_df["ph"], errors="coerce")
+    lab_df = lab_df.sort_values("date")
+    station_id = request.GET.get("station_id", "DWLR-001")
+    if station_id not in set(lab_df["station_id"].unique()):
+        station_id = str(lab_df["station_id"].iloc[0])
+    station_df = lab_df[lab_df["station_id"] == station_id].sort_values("date")
+    series = station_df["water_level_m"].values
+
+    trust = evaluate_station_trust(station_df, station_id, full_df=lab_df)
+    forecast = forecast_ridge(series, station_id=station_id, horizon=30)
+    trend = TrendAdapter.evaluate(series)
+    incidents = detect_regional_incidents(lab_df)
+    priority = evaluate_intervention_priorities(lab_df, limit=5)
+    monitoring = evaluate_monitoring_priorities(lab_df, budget=1500000, team_capacity=2, candidate_limit=5)
+    scenario, _ = execute_scenario({
+        "mode": "fast",
+        "rainfall_change_pct": 10,
+        "extraction_change_pct": -20,
+        "recharge_change_pct": 25,
+        "demand_change_pct": -10,
+    })
+    optimizer, _ = execute_optimization({"budget": 5000000, "team_capacity": 3})
+
+    return Response({
+        "status": "VERIFIED",
+        "sources": source_status(),
+        "public_data": live_summary,
+        "model_lab": lab_summary,
+        "selected_station": station_id,
+        "models": {
+            "trust": trust,
+            "forecast": forecast,
+            "trend": trend,
+            "incidents": incidents[:5],
+            "priority": priority.get("ranking", []),
+            "monitoring": monitoring.get("recommendations", []),
+            "scenario": scenario,
+            "optimizer": optimizer,
+        },
+        "explainability": [
+            "CGWB public layer is used for real field observation credibility.",
+            "The 7,300-row DWLR telemetry lab powers temporal ML/decision engines where repeated station history is required.",
+            "Manual injections are labeled MANUAL_TEST and never mixed with public-source provenance.",
+        ],
+    })
+
+
 def command_center_view(request):
     from django.shortcuts import render
-    return render(request, 'command_center.html')
+    return render(request, 'command_center.html')

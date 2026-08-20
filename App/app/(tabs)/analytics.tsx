@@ -1,25 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { StyleSheet, ScrollView, View, ActivityIndicator, RefreshControl, Dimensions } from 'react-native';
 import { LineChart, BarChart } from 'react-native-chart-kit';
-import axios from 'axios';
 import { Ionicons } from '@expo/vector-icons';
+import { apiGet, WaterQualityData } from '@/lib/api';
 
 import ParallaxScrollView from '@/components/ParallaxScrollView';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 // No need to import useColorScheme as we're using light mode only
-
-const API_URL = 'http://127.0.0.1:8000/api/water-quality/';
-
-interface WaterQualityData {
-  id: number;
-  date: string;
-  water_level_m: number;
-  temperature_c: number;
-  rainfall_mm: number;
-  ph: string;
-  dissolved_oxygen_mg_l: number;
-}
 
 export default function AnalyticsScreen() {
   const [loading, setLoading] = useState(true);
@@ -27,13 +15,12 @@ export default function AnalyticsScreen() {
   const [waterData, setWaterData] = useState<WaterQualityData[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [selectedMetric, setSelectedMetric] = useState<string>('water_level_m');
-  const colorScheme = 'light'; // Always use light mode
-  
+
   const fetchData = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(API_URL);
-      setWaterData(response.data);
+      const records = await apiGet<WaterQualityData[]>('/water-quality/?include_synthetic=1');
+      setWaterData(records);
       setError(null);
     } catch (err) {
       console.error('Error fetching data:', err);
@@ -59,7 +46,12 @@ export default function AnalyticsScreen() {
   // Prepare chart data based on selected metric
   const getMetricData = (metric: string) => {
     // Take every 4th data point to avoid overcrowding labels
-    const sampledData = recentData.filter((_, i) => i % 4 === 0);
+    const sampledData = recentData
+      .filter((_, i) => i % 4 === 0)
+      .filter(item => {
+        const value = metric === 'ph' ? item.ph : item[metric as keyof WaterQualityData];
+        return value !== null && value !== undefined && !Number.isNaN(Number(value));
+      });
     
     const colors: Record<string, (opacity: number) => string> = {
       water_level_m: (opacity = 1) => `rgba(65, 105, 225, ${opacity})`, // Blue
@@ -78,12 +70,12 @@ export default function AnalyticsScreen() {
     };
 
     return {
-      labels: sampledData.map(item => item.date.slice(5)), // Show only month-day
+      labels: sampledData.length ? sampledData.map(item => item.date.slice(5)) : ['No data'],
       datasets: [
         {
-          data: sampledData.map(item => 
-            metric === 'ph' ? parseFloat(item[metric]) : item[metric as keyof WaterQualityData] as number
-          ),
+          data: sampledData.length ? sampledData.map(item =>
+            metric === 'ph' ? Number(item.ph) : Number(item[metric as keyof WaterQualityData])
+          ) : [0],
           color: colors[metric] || ((opacity = 1) => `rgba(0, 0, 0, ${opacity})`),
           strokeWidth: 2
         }
@@ -124,9 +116,10 @@ export default function AnalyticsScreen() {
   const getStats = (metric: string) => {
     if (!recentData.length) return { avg: 0, min: 0, max: 0 };
     
-    const values = recentData.map(item => 
-      metric === 'ph' ? parseFloat(item[metric]) : item[metric as keyof WaterQualityData] as number
-    );
+    const values = recentData
+      .map(item => metric === 'ph' ? Number(item.ph) : Number(item[metric as keyof WaterQualityData]))
+      .filter(value => Number.isFinite(value));
+    if (!values.length) return { avg: 0, min: 0, max: 0 };
     
     return {
       avg: values.reduce((sum, val) => sum + val, 0) / values.length,
@@ -146,7 +139,7 @@ export default function AnalyticsScreen() {
       if (!monthlyData[month]) {
         monthlyData[month] = 0;
       }
-      monthlyData[month] += record.rainfall_mm;
+      monthlyData[month] += record.rainfall_mm || 0;
     });
     
     // Get the last 6 months

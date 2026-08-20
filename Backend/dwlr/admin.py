@@ -20,17 +20,25 @@ class WaterQualityRecordResource(resources.ModelResource):
         model = WaterQualityRecord
         fields = (
             'id',
+            'station_id',
+            'lat',
+            'lon',
             'date',
             'water_level_m',
             'temperature_c',
             'rainfall_mm',
             'ph',
             'dissolved_oxygen_mg_l',
+            'source',
+            'source_agency',
+            'data_quality',
+            'is_live_source',
         )
         import_id_fields = ['id']  # Optional: if you want updates by ID
 
 @admin.register(WaterQualityRecord)
 class WaterQualityRecordAdmin(ImportExportModelAdmin):
     resource_class = WaterQualityRecordResource
-    list_display = ('date', 'water_level_m', 'temperature_c', 'rainfall_mm', 'ph', 'dissolved_oxygen_mg_l')
-    list_filter = ('date',)
+    list_display = ('station_id', 'date', 'water_level_m', 'source', 'data_quality', 'is_live_source')
+    list_filter = ('date', 'source', 'data_quality', 'is_live_source')
+    search_fields = ('station_id', 'source_agency', 'source_record_id')
