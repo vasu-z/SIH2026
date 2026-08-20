@@ -180,3 +180,32 @@ def jalnetra_priority_view(request):
     if "error" in result:
         return Response(result, status=400)
     return Response(result)
+
+
+@api_view(["GET", "POST"])
+def jalnetra_unified_decision_view(request):
+    from .services.jalnetra.unified_engine import run_unified_decision_pipeline
+    df = _load_df()
+    if request.method == "POST":
+        data = request.data if isinstance(request.data, dict) else {}
+        budget = int(data.get("budget", 5000000))
+        team_capacity = int(data.get("team_capacity", data.get("teams", 3)))
+        pumping_red = float(data.get("pumping_reduction_pct", 20.0))
+        recharge_rate = float(data.get("recharge_m3_day", 500.0))
+        as_of = data.get("as_of")
+    else:
+        budget = int(request.GET.get("budget", 5000000))
+        team_capacity = int(request.GET.get("team_capacity", request.GET.get("teams", 3)))
+        pumping_red = float(request.GET.get("pumping_reduction_pct", 20.0))
+        recharge_rate = float(request.GET.get("recharge_m3_day", 500.0))
+        as_of = request.GET.get("as_of")
+
+    result = run_unified_decision_pipeline(
+        df_all=df,
+        budget=budget,
+        team_capacity=team_capacity,
+        scenario_pumping_reduction_pct=pumping_red,
+        scenario_recharge_m3_day=recharge_rate,
+        as_of=as_of
+    )
+    return Response(result)

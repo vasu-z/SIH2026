@@ -4,7 +4,8 @@ from .views import (
     WaterQualityRecordViewSet, stations_view, trust_view,
     incidents_view, forecast_view, optimize_view, scenario_run_view,
     jalnetra_optimizer_run_view, jalnetra_trust_view, jalnetra_incidents_view,
-    jalnetra_monitoring_priority_view, jalnetra_priority_view
+    jalnetra_monitoring_priority_view, jalnetra_priority_view,
+    jalnetra_unified_decision_view
 )
 
 router = DefaultRouter()
@@ -27,4 +28,6 @@ urlpatterns = [
     path('monitoring/priority/', jalnetra_monitoring_priority_view),
     path('jalnetra/priority/', jalnetra_priority_view),
     path('priority/', jalnetra_priority_view),
+    path('jalnetra/decision/unified/', jalnetra_unified_decision_view),
+    path('decision/unified/', jalnetra_unified_decision_view),
 ]
