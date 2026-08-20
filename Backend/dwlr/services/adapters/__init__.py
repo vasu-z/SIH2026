@@ -1,0 +1,1 @@
+# JalNetra external adapters package

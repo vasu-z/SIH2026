@@ -72,7 +72,13 @@ def forecast_view(request, station_id):
     station_df = df[df["station_id"] == station_id].sort_values("date")
     if station_df.empty:
         return Response({"error": "station not found"}, status=404)
-    result = forecast_station(station_df["water_level_m"].values)
+    model_name = request.GET.get("model", "ridge")
+    result = forecast_station(
+        series=station_df["water_level_m"].values,
+        station_id=station_id,
+        model_name=model_name,
+        full_df=df
+    )
     return Response(result)
 
 
