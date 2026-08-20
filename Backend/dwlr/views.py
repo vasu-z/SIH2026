@@ -92,3 +92,11 @@ def optimize_view(request):
     budget = request.data.get("budget", 5000000)
     result = optimize(interventions, budget)
     return Response(result)
+
+
+@api_view(["POST"])
+def scenario_run_view(request):
+    from .services.jalnetra.scenario_engine import execute_scenario
+    payload = request.data if isinstance(request.data, dict) else {}
+    result, status_code = execute_scenario(payload)
+    return Response(result, status=status_code)
