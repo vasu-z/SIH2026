@@ -2,7 +2,8 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .views import (
     WaterQualityRecordViewSet, stations_view, trust_view,
-    incidents_view, forecast_view, optimize_view, scenario_run_view
+    incidents_view, forecast_view, optimize_view, scenario_run_view,
+    jalnetra_optimizer_run_view
 )
 
 router = DefaultRouter()
@@ -17,4 +18,6 @@ urlpatterns = [
     path('optimize/', optimize_view),
     path('jalnetra/scenario/run/', scenario_run_view),
     path('scenario/run/', scenario_run_view),
+    path('jalnetra/optimizer/run/', jalnetra_optimizer_run_view),
+    path('optimizer/run/', jalnetra_optimizer_run_view),
 ]

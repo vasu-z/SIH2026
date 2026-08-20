@@ -100,3 +100,11 @@ def scenario_run_view(request):
     payload = request.data if isinstance(request.data, dict) else {}
     result, status_code = execute_scenario(payload)
     return Response(result, status=status_code)
+
+
+@api_view(["POST"])
+def jalnetra_optimizer_run_view(request):
+    from .services.jalnetra.optimizer_engine import execute_optimization
+    payload = request.data if isinstance(request.data, dict) else {}
+    result, status_code = execute_optimization(payload)
+    return Response(result, status=status_code)
