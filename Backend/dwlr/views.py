@@ -209,3 +209,8 @@ def jalnetra_unified_decision_view(request):
         as_of=as_of
     )
     return Response(result)
+
+
+def command_center_view(request):
+    from django.shortcuts import render
+    return render(request, 'command_center.html')

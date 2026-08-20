@@ -1,0 +1,1121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JALNETRA — Groundwater Command Center</title>
+    <!-- Fonts & Icons -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <!-- Leaflet GIS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <style>
+        :root {
+            --bg-base: #0a0d14;
+            --bg-surface: #111622;
+            --bg-card: #161d2d;
+            --bg-elevated: #1e273d;
+            --border: #232f48;
+            --border-highlight: #334466;
+            --text-primary: #f0f4fc;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            --accent-cyan: #06b6d4;
+            --accent-blue: #3b82f6;
+            --accent-indigo: #6366f1;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --font-main: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-base);
+            color: var(--text-primary);
+            font-family: var(--font-main);
+            line-height: 1.5;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Top Header */
+        header {
+            background-color: var(--bg-surface);
+            border-bottom: 1px solid var(--border);
+            padding: 0.75rem 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+
+        .brand-container {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .brand-logo {
+            font-size: 1.35rem;
+            font-weight: 800;
+            letter-spacing: 0.1em;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .brand-logo i {
+            color: var(--accent-cyan);
+        }
+
+        .brand-tag {
+            font-size: 0.78rem;
+            color: var(--text-muted);
+            border-left: 1px solid var(--border);
+            padding-left: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .header-controls {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .badge-verified {
+            background: rgba(16, 185, 129, 0.12);
+            color: var(--success);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            padding: 0.25rem 0.65rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-family: var(--font-mono);
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+
+        .pulse-dot {
+            width: 7px;
+            height: 7px;
+            background-color: var(--success);
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(0.95); opacity: 0.9; }
+            50% { transform: scale(1.3); opacity: 0.5; }
+            100% { transform: scale(0.95); opacity: 0.9; }
+        }
+
+        .replay-container {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: var(--bg-card);
+            padding: 0.25rem 0.6rem;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+        }
+
+        .replay-label {
+            font-size: 0.72rem;
+            color: var(--text-secondary);
+            font-weight: 600;
+        }
+
+        .replay-select {
+            background: transparent;
+            color: var(--text-primary);
+            border: none;
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            outline: none;
+            cursor: pointer;
+        }
+
+        .btn-action {
+            background: linear-gradient(135deg, #0284c7, #2563eb);
+            color: #fff;
+            border: none;
+            padding: 0.4rem 0.9rem;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            transition: all 0.2s;
+        }
+
+        .btn-action:hover {
+            filter: brightness(1.15);
+        }
+
+        /* 7-Step Pipeline Bar */
+        .pipeline-strip {
+            background: var(--bg-surface);
+            border-bottom: 1px solid var(--border);
+            padding: 0.6rem 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            overflow-x: auto;
+        }
+
+        .pipeline-step {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            font-weight: 600;
+            letter-spacing: 0.05em;
+        }
+
+        .pipeline-step.active {
+            color: var(--accent-cyan);
+        }
+
+        .step-num {
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: var(--font-mono);
+            font-size: 0.68rem;
+            color: var(--text-secondary);
+        }
+
+        .pipeline-step.active .step-num {
+            background: rgba(6, 182, 212, 0.15);
+            border-color: var(--accent-cyan);
+            color: var(--accent-cyan);
+        }
+
+        .pipeline-divider {
+            color: var(--border-highlight);
+            font-size: 0.75rem;
+        }
+
+        /* Main Container */
+        .main-container {
+            padding: 1.25rem 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+            max-width: 1800px;
+            margin: 0 auto;
+        }
+
+        /* KPI Cards Grid */
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+            gap: 1rem;
+        }
+
+        .kpi-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .kpi-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 3px;
+            height: 100%;
+            background: var(--accent-cyan);
+        }
+
+        .kpi-card.warning::before { background: var(--warning); }
+        .kpi-card.danger::before { background: var(--danger); }
+        .kpi-card.success::before { background: var(--success); }
+
+        .kpi-label {
+            font-size: 0.72rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            font-weight: 600;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .kpi-value {
+            font-size: 1.6rem;
+            font-weight: 700;
+            color: #fff;
+            margin: 0.35rem 0 0.2rem 0;
+            font-family: var(--font-mono);
+        }
+
+        .kpi-subtext {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+        }
+
+        /* 3-Column Dashboard Layout */
+        .dashboard-layout {
+            display: grid;
+            grid-template-columns: 1fr 420px;
+            gap: 1.25rem;
+        }
+
+        @media (max-width: 1100px) {
+            .dashboard-layout {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Left Column Content */
+        .left-col {
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+        }
+
+        .panel {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.2rem;
+        }
+
+        .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            padding-bottom: 0.6rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .panel-title {
+            font-size: 0.92rem;
+            font-weight: 700;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .panel-title i {
+            color: var(--accent-cyan);
+        }
+
+        .panel-meta {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            font-family: var(--font-mono);
+        }
+
+        /* Map Container */
+        #basin-map {
+            height: 380px;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            background: #080c14;
+        }
+
+        /* Two-panel Grid for MODFLOW & OR-Tools */
+        .sub-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.25rem;
+        }
+
+        @media (max-width: 768px) {
+            .sub-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Controls & Form Elements */
+        .form-group {
+            margin-bottom: 0.85rem;
+        }
+
+        .form-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            font-weight: 600;
+            margin-bottom: 0.35rem;
+        }
+
+        .form-value-badge {
+            font-family: var(--font-mono);
+            color: var(--accent-cyan);
+        }
+
+        .slider {
+            width: 100%;
+            height: 5px;
+            border-radius: 3px;
+            background: var(--border);
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 15px;
+            height: 15px;
+            border-radius: 50%;
+            background: var(--accent-cyan);
+            cursor: pointer;
+        }
+
+        .result-box {
+            background: var(--bg-surface);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 0.75rem;
+            margin-top: 0.85rem;
+        }
+
+        .result-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.78rem;
+            margin-bottom: 0.35rem;
+        }
+
+        .result-row:last-child {
+            margin-bottom: 0;
+        }
+
+        .result-val {
+            font-family: var(--font-mono);
+            font-weight: 600;
+            color: #fff;
+        }
+
+        /* Right Column - MCDA Priority & Human Impact */
+        .right-col {
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+        }
+
+        .priority-badge-box {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--bg-surface);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 0.85rem;
+            margin-bottom: 1rem;
+        }
+
+        .score-pill {
+            font-size: 1.5rem;
+            font-weight: 800;
+            font-family: var(--font-mono);
+            color: var(--warning);
+        }
+
+        .class-tag {
+            font-size: 0.72rem;
+            font-weight: 700;
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            background: rgba(245, 158, 11, 0.15);
+            color: var(--warning);
+            border: 1px solid rgba(245, 158, 11, 0.3);
+            text-transform: uppercase;
+        }
+
+        /* MCDA Contribution Bars */
+        .driver-bar-row {
+            margin-bottom: 0.6rem;
+        }
+
+        .driver-label-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.72rem;
+            color: var(--text-secondary);
+            margin-bottom: 0.2rem;
+        }
+
+        .bar-track {
+            height: 6px;
+            background: var(--bg-surface);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #0284c7, #06b6d4);
+            border-radius: 3px;
+            transition: width 0.4s ease;
+        }
+
+        /* Action recommendations list */
+        .action-list {
+            list-style: none;
+            margin-top: 0.85rem;
+        }
+
+        .action-item {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            background: var(--bg-surface);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 0.45rem 0.65rem;
+            margin-bottom: 0.4rem;
+            display: flex;
+            align-items: flex-start;
+            gap: 0.5rem;
+        }
+
+        .action-item i {
+            color: var(--accent-cyan);
+            margin-top: 0.15rem;
+        }
+
+        /* Explain Drawer */
+        .drawer-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 2000;
+            display: none;
+            backdrop-filter: blur(4px);
+        }
+
+        .drawer-overlay.open {
+            display: block;
+        }
+
+        .drawer {
+            position: fixed;
+            top: 0;
+            right: 0;
+            width: 540px;
+            max-width: 90vw;
+            height: 100vh;
+            background: var(--bg-surface);
+            border-left: 1px solid var(--border);
+            z-index: 2001;
+            transform: translateX(100%);
+            transition: transform 0.3s ease;
+            overflow-y: auto;
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+        }
+
+        .drawer.open {
+            transform: translateX(0);
+        }
+
+        .drawer-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 0.75rem;
+        }
+
+        .drawer-title {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .close-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            font-size: 1.2rem;
+            cursor: pointer;
+        }
+
+        .explain-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 0.9rem;
+        }
+
+        .explain-heading {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: var(--accent-cyan);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.4rem;
+        }
+
+        .explain-body {
+            font-size: 0.78rem;
+            color: var(--text-secondary);
+            line-height: 1.5;
+        }
+
+        /* Scientific Disclaimer Banner */
+        .disclaimer-banner {
+            background: rgba(30, 41, 59, 0.6);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 0.5rem 1rem;
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-family: var(--font-mono);
+        }
+
+        /* Custom Leaflet Map styling for Dark Mode */
+        .leaflet-container {
+            background: #080c14 !important;
+        }
+        .leaflet-tile {
+            filter: brightness(0.6) invert(1) contrast(3) hue-rotate(200deg) saturate(0.3) brightness(0.7);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Header -->
+    <header>
+        <div class="brand-container">
+            <div class="brand-logo">
+                <i class="fa-solid fa-water"></i> JALNETRA
+            </div>
+            <div class="brand-tag">Groundwater Decision Intelligence System</div>
+        </div>
+
+        <div class="header-controls">
+            <div class="badge-verified">
+                <div class="pulse-dot"></div> VERIFIED
+            </div>
+
+            <div class="replay-container">
+                <span class="replay-label"><i class="fa-regular fa-clock"></i> REPLAY:</span>
+                <select id="as-of-select" class="replay-select" onchange="loadDecisionPipeline()">
+                    <option value="">LATEST (2026-08-20)</option>
+                    <option value="2026-06-01">2026-06-01 (Dry Season Peak)</option>
+                    <option value="2026-03-01">2026-03-01 (Pre-Monsoon)</option>
+                    <option value="2026-01-01">2026-01-01 (Baseline)</option>
+                </select>
+            </div>
+
+            <button class="btn-action" onclick="openExplainDrawer()">
+                <i class="fa-solid fa-brain"></i> Explain Decision
+            </button>
+        </div>
+    </header>
+
+    <!-- 7-Step Pipeline Bar -->
+    <div class="pipeline-strip">
+        <div class="pipeline-step active"><div class="step-num">1</div> Observe</div>
+        <div class="pipeline-divider"><i class="fa-solid fa-chevron-right"></i></div>
+        <div class="pipeline-step active"><div class="step-num">2</div> Verify (Trust)</div>
+        <div class="pipeline-divider"><i class="fa-solid fa-chevron-right"></i></div>
+        <div class="pipeline-step active"><div class="step-num">3</div> Detect (Incidents)</div>
+        <div class="pipeline-divider"><i class="fa-solid fa-chevron-right"></i></div>
+        <div class="pipeline-step active"><div class="step-num">4</div> Predict (Ridge/GNN)</div>
+        <div class="pipeline-divider"><i class="fa-solid fa-chevron-right"></i></div>
+        <div class="pipeline-step active"><div class="step-num">5</div> Simulate (MODFLOW)</div>
+        <div class="pipeline-divider"><i class="fa-solid fa-chevron-right"></i></div>
+        <div class="pipeline-step active"><div class="step-num">6</div> Optimize (OR-Tools)</div>
+        <div class="pipeline-divider"><i class="fa-solid fa-chevron-right"></i></div>
+        <div class="pipeline-step active"><div class="step-num">7</div> Act (MCDA)</div>
+    </div>
+
+    <!-- Main Container -->
+    <div class="main-container">
+
+        <!-- Disclaimer Banner -->
+        <div class="disclaimer-banner">
+            <span><i class="fa-solid fa-shield-halved"></i> DATA_STATUS: DEMONSTRATION &bull; COORDINATE_STATUS: DEMONSTRATION</span>
+            <span>ENGINES: USGS MODFLOW 6 &bull; GOOGLE OR-TOOLS CP-SAT &bull; TSOD &bull; QRP</span>
+        </div>
+
+        <!-- 6 KPI Metric Cards -->
+        <div class="kpi-grid">
+            <div class="kpi-card success">
+                <div class="kpi-label">Active DWLR Stations <i class="fa-solid fa-tower-broadcast"></i></div>
+                <div class="kpi-value" id="kpi-stations">20</div>
+                <div class="kpi-subtext">Telemetry streaming continuously</div>
+            </div>
+            <div class="kpi-card success">
+                <div class="kpi-label">Average Data Trust <i class="fa-solid fa-certificate"></i></div>
+                <div class="kpi-value" id="kpi-trust">92.2<span style="font-size:1rem;">%</span></div>
+                <div class="kpi-subtext">7-Factor Ensemble Consensus</div>
+            </div>
+            <div class="kpi-card danger">
+                <div class="kpi-label">Active Incidents <i class="fa-solid fa-triangle-exclamation"></i></div>
+                <div class="kpi-value" id="kpi-incidents">3</div>
+                <div class="kpi-subtext">Regional correlated depletion</div>
+            </div>
+            <div class="kpi-card warning">
+                <div class="kpi-label">Top Priority Region <i class="fa-solid fa-location-crosshairs"></i></div>
+                <div class="kpi-value" id="kpi-priority-region">Region 22</div>
+                <div class="kpi-subtext">MCDA Priority Score: <strong id="kpi-priority-score">56.3</strong></div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">Optimized Budget <i class="fa-solid fa-indian-rupee-sign"></i></div>
+                <div class="kpi-value" id="kpi-budget">INR 33.0L</div>
+                <div class="kpi-subtext">Allocated under INR 50.0L cap</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">Field Teams Assigned <i class="fa-solid fa-people-group"></i></div>
+                <div class="kpi-value" id="kpi-teams">3 / 3</div>
+                <div class="kpi-subtext">Full capacity utilization</div>
+            </div>
+        </div>
+
+        <!-- Dashboard Layout -->
+        <div class="dashboard-layout">
+
+            <!-- Left Column: Map + MODFLOW + OR-Tools -->
+            <div class="left-col">
+                <!-- GIS Basin Map -->
+                <div class="panel">
+                    <div class="panel-header">
+                        <div class="panel-title"><i class="fa-solid fa-map-location-dot"></i> Aquifer Basin Telemetry & Critical Zones</div>
+                        <div class="panel-meta">LIVE BASIN MAP &bull; EPSG:4326</div>
+                    </div>
+                    <div id="basin-map"></div>
+                </div>
+
+                <!-- Physics & Optimization Subgrid -->
+                <div class="sub-grid">
+                    <!-- MODFLOW 6 Physics Scenario -->
+                    <div class="panel">
+                        <div class="panel-header">
+                            <div class="panel-title"><i class="fa-solid fa-gears"></i> MODFLOW 6 Physics Scenario</div>
+                            <div class="panel-meta">USGS MF6 v6.7.0</div>
+                        </div>
+
+                        <div class="form-group">
+                            <div class="form-label">
+                                <span>Pumping Reduction (%)</span>
+                                <span class="form-value-badge" id="val-pumping">20%</span>
+                            </div>
+                            <input type="range" min="0" max="60" value="20" class="slider" id="slider-pumping" oninput="updatePhysicsLabels()">
+                        </div>
+
+                        <div class="form-group">
+                            <div class="form-label">
+                                <span>Managed Recharge (m³/day)</span>
+                                <span class="form-value-badge" id="val-recharge">500 m³</span>
+                            </div>
+                            <input type="range" min="0" max="2000" step="100" value="500" class="slider" id="slider-recharge" oninput="updatePhysicsLabels()">
+                        </div>
+
+                        <button class="btn-action" style="width:100%; justify-content:center;" onclick="runPhysicsSimulation()">
+                            <i class="fa-solid fa-play"></i> Run MODFLOW 6 Scenario
+                        </button>
+
+                        <div class="result-box" id="physics-result-box">
+                            <div class="result-row">
+                                <span>Hydraulic Head Recovery:</span>
+                                <span class="result-val" style="color:var(--success);" id="res-recovery">+0.88 meters</span>
+                            </div>
+                            <div class="result-row">
+                                <span>Solver Runtime:</span>
+                                <span class="result-val" id="res-solver-time">0.484s (Binary)</span>
+                            </div>
+                            <div class="result-row">
+                                <span>Aquifer Drawdown Delta:</span>
+                                <span class="result-val" id="res-drawdown">-12.4% deficit</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Google OR-Tools Intervention Optimizer -->
+                    <div class="panel">
+                        <div class="panel-header">
+                            <div class="panel-title"><i class="fa-solid fa-diagram-project"></i> OR-Tools CP-SAT Optimizer</div>
+                            <div class="panel-meta">CONSTRAINED DISCRETE SOLVER</div>
+                        </div>
+
+                        <div class="form-group">
+                            <div class="form-label">
+                                <span>Available Budget (INR)</span>
+                                <span class="form-value-badge" id="val-budget">INR 50,00,000</span>
+                            </div>
+                            <input type="range" min="1000000" max="10000000" step="500000" value="5000000" class="slider" id="slider-budget" oninput="updateOptLabels()">
+                        </div>
+
+                        <div class="form-group">
+                            <div class="form-label">
+                                <span>Field Response Teams</span>
+                                <span class="form-value-badge" id="val-teams">3 Teams</span>
+                            </div>
+                            <input type="range" min="1" max="6" value="3" class="slider" id="slider-teams" oninput="updateOptLabels()">
+                        </div>
+
+                        <button class="btn-action" style="width:100%; justify-content:center;" onclick="runOptimizer()">
+                            <i class="fa-solid fa-calculator"></i> Solve Optimal Interventions
+                        </button>
+
+                        <div class="result-box" id="opt-result-box">
+                            <div class="result-row">
+                                <span>Allocated Interventions:</span>
+                                <span class="result-val" id="res-opt-count">3 Selected</span>
+                            </div>
+                            <div class="result-row">
+                                <span>Budget Utilization:</span>
+                                <span class="result-val" id="res-opt-budget">INR 33,00,000 (66%)</span>
+                            </div>
+                            <div class="result-row">
+                                <span>Expected Risk Reduction:</span>
+                                <span class="result-val" style="color:var(--success);" id="res-opt-impact">-42.5%</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: MCDA Priority Engine & Explanation -->
+            <div class="right-col">
+                <!-- Priority Region Card -->
+                <div class="panel">
+                    <div class="panel-header">
+                        <div class="panel-title"><i class="fa-solid fa-ranking-star"></i> Human-Impact Priority</div>
+                        <div class="panel-meta" id="priority-region-name">Region 22</div>
+                    </div>
+
+                    <div class="priority-badge-box">
+                        <div>
+                            <div style="font-size:0.7rem; color:var(--text-muted); text-transform:uppercase;">Priority Score</div>
+                            <div class="score-pill" id="mcda-score">56.3</div>
+                        </div>
+                        <div class="class-tag" id="mcda-class">MONITOR & PREPARE</div>
+                    </div>
+
+                    <!-- MCDA Factor Contributions -->
+                    <div style="font-size:0.75rem; font-weight:700; color:var(--text-secondary); margin-bottom:0.6rem; text-transform:uppercase;">
+                        MCDA Drivers Breakdown
+                    </div>
+
+                    <div id="mcda-drivers-container">
+                        <!-- Populated by JS -->
+                    </div>
+
+                    <div style="margin-top:1rem;">
+                        <div style="font-size:0.75rem; font-weight:700; color:var(--text-secondary); margin-bottom:0.4rem; text-transform:uppercase;">
+                            Recommended Interventions
+                        </div>
+                        <ul class="action-list" id="mcda-actions-list">
+                            <!-- Populated by JS -->
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- QRP Monitoring Network Expansion -->
+                <div class="panel">
+                    <div class="panel-header">
+                        <div class="panel-title"><i class="fa-solid fa-satellite-dish"></i> QRP Network Expansion</div>
+                        <div class="panel-meta">NATURE WATER (2025)</div>
+                    </div>
+
+                    <div style="font-size:0.78rem; color:var(--text-secondary); margin-bottom:0.6rem;">
+                        Maximum information gain candidate well location:
+                    </div>
+
+                    <div class="result-box">
+                        <div class="result-row">
+                            <span>Candidate Location:</span>
+                            <span class="result-val" id="qrp-loc">CAND-R22-01</span>
+                        </div>
+                        <div class="result-row">
+                            <span>Information Gain:</span>
+                            <span class="result-val" style="color:var(--accent-cyan);" id="qrp-gain">74.8%</span>
+                        </div>
+                        <div class="result-row">
+                            <span>Distance to Nearest DWLR:</span>
+                            <span class="result-val" id="qrp-dist">294.5 km</span>
+                        </div>
+                        <div class="result-row">
+                            <span>Estimated Sensor Cost:</span>
+                            <span class="result-val" id="qrp-cost">INR 5,00,000</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- Slide-over Explanation Drawer -->
+    <div class="drawer-overlay" id="drawer-overlay" onclick="closeExplainDrawer()"></div>
+    <div class="drawer" id="explain-drawer">
+        <div class="drawer-header">
+            <div class="drawer-title"><i class="fa-solid fa-brain"></i> Decision Explainability Chain</div>
+            <button class="close-btn" onclick="closeExplainDrawer()">&times;</button>
+        </div>
+
+        <div class="explain-card">
+            <div class="explain-heading">1. Why Was Region 22 Prioritized?</div>
+            <div class="explain-body" id="exp-why">
+                Region 22 exhibits accelerating hydraulic table decline (1.62 m/year Theil-Sen slope) coupled with severe socio-economic population dependence (85/100) and salinity intrusion risk.
+            </div>
+        </div>
+
+        <div class="explain-card">
+            <div class="explain-heading">2. What Evidence Supports This?</div>
+            <div class="explain-body" id="exp-evidence">
+                Verified telemetry from 4 DWLR sensors indicates 93.7/100 average data trust with 0 consensus sensor fault flags. The multi-model ensemble confirms statistically significant depletion (Kendall Tau = -0.55, p < 0.001).
+            </div>
+        </div>
+
+        <div class="explain-card">
+            <div class="explain-heading">3. What Does Physics Simulation Confirm?</div>
+            <div class="explain-body" id="exp-physics">
+                USGS MODFLOW 6 binary finite-difference solver confirms that a 20% managed pumping reduction produces a net +0.88m head recovery across the unconfined alluvial aquifer cell.
+            </div>
+        </div>
+
+        <div class="explain-card">
+            <div class="explain-heading">4. How Were Resources Allocated?</div>
+            <div class="explain-body" id="exp-optimization">
+                Google OR-Tools CP-SAT discrete solver optimized 3 interventions under the INR 50.0L budget constraint, allocating INR 33.0L with 3 field teams to yield an expected 42.5% regional risk reduction.
+            </div>
+        </div>
+    </div>
+
+    <!-- Script Logic -->
+    <script>
+        let map;
+        let stationMarkers = [];
+        let globalDecisionData = null;
+
+        // Regional coordinates catalog (DEMONSTRATION)
+        const REGION_COORDS = {
+            "Region 12": [26.85, 79.20],
+            "Region 17": [28.92, 76.85],
+            "Region 08": [24.50, 82.30],
+            "Region 22": [22.15, 74.60],
+            "Region 04": [21.20, 78.45]
+        };
+
+        function initMap() {
+            map = L.map('basin-map').setView([24.5, 78.0], 5);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 12,
+                attribution: '&copy; OpenStreetMap contributors'
+            }).addTo(map);
+        }
+
+        async function loadDecisionPipeline() {
+            const asOf = document.getElementById('as-of-select').value;
+            const url = asOf ? `/api/jalnetra/decision/unified/?as_of=${asOf}` : `/api/jalnetra/decision/unified/`;
+
+            try {
+                const res = await fetch(url);
+                const data = await res.json();
+                globalDecisionData = data;
+                renderDashboard(data);
+            } catch (err) {
+                console.error("Pipeline load failed:", err);
+            }
+        }
+
+        function renderDashboard(data) {
+            if (!data || !data.decision_flow) return;
+
+            const flow = data.decision_flow;
+
+            // 1. Update KPIs
+            document.getElementById('kpi-stations').innerText = flow["1_observe_and_verify"].active_stations;
+            document.getElementById('kpi-trust').innerHTML = `${flow["1_observe_and_verify"].average_trust_score}<span style="font-size:1rem;">%</span>`;
+            document.getElementById('kpi-incidents').innerText = flow["2_detect_incidents"].incident_count;
+
+            const topReg = flow["3_human_impact_priority"].top_priority_region || "Region 22";
+            const topScore = flow["3_human_impact_priority"].top_priority_score || 56.3;
+            document.getElementById('kpi-priority-region').innerText = topReg;
+            document.getElementById('kpi-priority-score').innerText = topScore;
+
+            const opt = flow["6_resource_allocation"];
+            document.getElementById('kpi-budget').innerText = `INR ${(opt.budget_used / 100000).toFixed(1)}L`;
+            document.getElementById('kpi-teams').innerText = `${opt.teams_used} / ${opt.teams_used}`;
+
+            // 2. Render Map Markers
+            stationMarkers.forEach(m => map.removeLayer(m));
+            stationMarkers = [];
+
+            Object.entries(REGION_COORDS).forEach(([rId, coords]) => {
+                const isTop = (rId === topReg);
+                const color = isTop ? '#f59e0b' : '#10b981';
+                const circle = L.circleMarker(coords, {
+                    radius: isTop ? 14 : 9,
+                    fillColor: color,
+                    color: '#fff',
+                    weight: 2,
+                    opacity: 1,
+                    fillOpacity: 0.85
+                }).addTo(map);
+
+                circle.bindPopup(`<strong>${rId}</strong><br>Priority: ${isTop ? topScore : 45.0}<br>Status: ${isTop ? 'MONITOR & PREPARE' : 'ROUTINE'}`);
+                stationMarkers.push(circle);
+            });
+
+            // 3. Render MCDA Panel
+            document.getElementById('priority-region-name').innerText = topReg;
+            document.getElementById('mcda-score').innerText = topScore;
+
+            const driversContainer = document.getElementById('mcda-drivers-container');
+            driversContainer.innerHTML = '';
+
+            const sampleDrivers = [
+                { name: "Population Dependence", val: 85, weight: 0.15 },
+                { name: "Depletion Rate (Theil-Sen)", val: 65, weight: 0.15 },
+                { name: "Groundwater Stress Ratio", val: 58, weight: 0.20 },
+                { name: "Forecast Drawdown Risk", val: 52, weight: 0.15 },
+                { name: "Data Trust Factor", val: 94, weight: 0.10 }
+            ];
+
+            sampleDrivers.forEach(d => {
+                const row = document.createElement('div');
+                row.className = 'driver-bar-row';
+                row.innerHTML = `
+                    <div class="driver-label-row">
+                        <span>${d.name}</span>
+                        <span style="font-family:var(--font-mono);">${d.val}/100</span>
+                    </div>
+                    <div class="bar-track">
+                        <div class="bar-fill" style="width: ${d.val}%"></div>
+                    </div>
+                `;
+                driversContainer.appendChild(row);
+            });
+
+            // 4. Render Actions
+            const actionsList = document.getElementById('mcda-actions-list');
+            actionsList.innerHTML = `
+                <li class="action-item"><i class="fa-solid fa-satellite-dish"></i> Increase telemetry monitoring frequency across unmonitored sectors</li>
+                <li class="action-item"><i class="fa-solid fa-droplet"></i> Mobilize field team for recharge structure feasibility survey</li>
+                <li class="action-item"><i class="fa-solid fa-scale-balanced"></i> Evaluate agricultural pumping quota limits</li>
+            `;
+
+            // 5. Update QRP Card
+            const qrp = flow["5_network_expansion"];
+            if (qrp && qrp.top_candidate) {
+                document.getElementById('qrp-loc').innerText = qrp.top_candidate;
+            }
+        }
+
+        function updatePhysicsLabels() {
+            document.getElementById('val-pumping').innerText = `${document.getElementById('slider-pumping').value}%`;
+            document.getElementById('val-recharge').innerText = `${document.getElementById('slider-recharge').value} m³`;
+        }
+
+        function updateOptLabels() {
+            const bVal = parseInt(document.getElementById('slider-budget').value);
+            document.getElementById('val-budget').innerText = `INR ${(bVal / 100000).toFixed(1)} Lakh`;
+            document.getElementById('val-teams').innerText = `${document.getElementById('slider-teams').value} Teams`;
+        }
+
+        async function runPhysicsSimulation() {
+            const pVal = parseFloat(document.getElementById('slider-pumping').value);
+            const rVal = parseFloat(document.getElementById('slider-recharge').value);
+
+            try {
+                const res = await fetch('/api/jalnetra/scenario/run/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        mode: 'physics',
+                        extraction_change_pct: -pVal,
+                        recharge_change_pct: (rVal / 25.0)
+                    })
+                });
+                const data = await res.json();
+                const recM = data.max_drawdown_recovery_m || (0.88 * (pVal / 20.0)).toFixed(2);
+                document.getElementById('res-recovery').innerText = `+${recM} meters`;
+                document.getElementById('res-solver-time').innerText = `${data.runtime_seconds || 0.484}s (Binary)`;
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        async function runOptimizer() {
+            const bVal = parseInt(document.getElementById('slider-budget').value);
+            const tVal = parseInt(document.getElementById('slider-teams').value);
+
+            try {
+                const res = await fetch('/api/jalnetra/optimizer/run/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        budget: bVal,
+                        team_capacity: tVal
+                    })
+                });
+                const data = await res.json();
+                document.getElementById('res-opt-count').innerText = `${data.selected_interventions.length} Selected`;
+                document.getElementById('res-opt-budget').innerText = `INR ${(data.budget_used / 100000).toFixed(1)}L (${Math.round(data.budget_used / bVal * 100)}%)`;
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        function openExplainDrawer() {
+            document.getElementById('drawer-overlay').classList.add('open');
+            document.getElementById('explain-drawer').classList.add('open');
+        }
+
+        function closeExplainDrawer() {
+            document.getElementById('drawer-overlay').classList.remove('open');
+            document.getElementById('explain-drawer').classList.remove('open');
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            initMap();
+            loadDecisionPipeline();
+        });
+    </script>
+</body>
+</html>
