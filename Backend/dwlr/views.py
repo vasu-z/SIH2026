@@ -129,3 +129,54 @@ def jalnetra_incidents_view(request):
     as_of = request.GET.get("as_of")
     incidents = detect_regional_incidents(df, as_of=as_of)
     return Response(incidents)
+
+
+@api_view(["GET", "POST"])
+def jalnetra_monitoring_priority_view(request):
+    from .services.jalnetra.monitoring_engine import evaluate_monitoring_priorities
+    df = _load_df()
+    if request.method == "POST":
+        data = request.data if isinstance(request.data, dict) else {}
+        budget = int(data.get("budget", 1500000))
+        team_capacity = int(data.get("team_capacity", data.get("teams", 2)))
+        candidate_limit = int(data.get("candidate_limit", data.get("limit", 5)))
+        as_of = data.get("as_of")
+    else:
+        budget = int(request.GET.get("budget", 1500000))
+        team_capacity = int(request.GET.get("team_capacity", request.GET.get("teams", 2)))
+        candidate_limit = int(request.GET.get("candidate_limit", request.GET.get("limit", 5)))
+        as_of = request.GET.get("as_of")
+
+    result = evaluate_monitoring_priorities(
+        df_all=df,
+        budget=budget,
+        team_capacity=team_capacity,
+        candidate_limit=candidate_limit,
+        as_of=as_of
+    )
+    return Response(result)
+
+
+@api_view(["GET", "POST"])
+def jalnetra_priority_view(request):
+    from .services.jalnetra.priority_engine import evaluate_intervention_priorities
+    df = _load_df()
+    if request.method == "POST":
+        data = request.data if isinstance(request.data, dict) else {}
+        weights = data.get("weights")
+        limit = int(data.get("limit", 10))
+        as_of = data.get("as_of")
+    else:
+        weights = None
+        limit = int(request.GET.get("limit", 10))
+        as_of = request.GET.get("as_of")
+
+    result = evaluate_intervention_priorities(
+        df_all=df,
+        weights=weights,
+        limit=limit,
+        as_of=as_of
+    )
+    if "error" in result:
+        return Response(result, status=400)
+    return Response(result)
