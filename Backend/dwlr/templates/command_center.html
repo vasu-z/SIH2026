@@ -4,1897 +4,1231 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>JALNETRA — AI + Physics Groundwater Decision Intelligence</title>
-    
-    <!-- Google Fonts & FontAwesome -->
+    <meta name="description" content="JalNetra: Real-time groundwater decision intelligence combining DWLR telemetry, 7-factor data trust, Ridge forecasting, MODFLOW 6 physics, OR-Tools optimization, and explainable MCDA priority.">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    
-    <!-- Leaflet GIS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
-    <!-- Chart.js for real dynamic time-series charts -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-
     <style>
         :root {
-            --bg-base: #080b11;
-            --bg-surface: #0f1420;
-            --bg-card: #151b2c;
-            --bg-card-hover: #1c243a;
-            --bg-elevated: #222c46;
-            --border: #1e293b;
-            --border-highlight: #334155;
-            --text-primary: #f8fafc;
-            --text-secondary: #94a3b8;
-            --text-muted: #64748b;
-            --accent-cyan: #06b6d4;
-            --accent-blue: #3b82f6;
-            --accent-indigo: #6366f1;
-            --success: #10b981;
-            --warning: #f59e0b;
-            --danger: #ef4444;
-            --font-main: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-            --font-mono: 'JetBrains Mono', monospace;
-        }
-
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
-
-        body {
-            background-color: var(--bg-base);
-            color: var(--text-primary);
-            font-family: var(--font-main);
-            min-height: 100vh;
-            overflow-x: hidden;
-            display: flex;
-            flex-direction: column;
-        }
-
-        /* App Header */
-        header {
-            background: var(--bg-surface);
-            border-bottom: 1px solid var(--border);
-            padding: 0.65rem 1.5rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            position: sticky;
-            top: 0;
-            z-index: 1000;
-        }
-
-        .header-brand {
-            display: flex;
-            align-items: center;
-            gap: 0.9rem;
-        }
-
-        .logo-icon {
-            font-size: 1.35rem;
-            color: var(--accent-cyan);
-            text-shadow: 0 0 12px rgba(6, 182, 212, 0.4);
-        }
-
-        .brand-title {
-            font-size: 1.25rem;
-            font-weight: 800;
-            letter-spacing: 0.08em;
-            color: #fff;
-        }
-
-        .brand-sub {
-            font-size: 0.72rem;
-            color: var(--text-muted);
-            border-left: 1px solid var(--border);
-            padding-left: 0.8rem;
-            letter-spacing: 0.04em;
-            text-transform: uppercase;
-        }
-
-        /* Main Navigation Tabs */
-        .nav-tabs {
-            display: flex;
-            gap: 0.35rem;
-            background: var(--bg-card);
-            padding: 0.3rem;
-            border-radius: 8px;
-            border: 1px solid var(--border);
-        }
-
-        .nav-tab-btn {
-            background: transparent;
-            border: none;
-            color: var(--text-secondary);
-            font-family: var(--font-main);
-            font-size: 0.78rem;
-            font-weight: 600;
-            padding: 0.45rem 0.9rem;
-            border-radius: 6px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 0.45rem;
-            transition: all 0.15s ease;
-        }
-
-        .nav-tab-btn:hover {
-            color: #fff;
-            background: rgba(255, 255, 255, 0.05);
-        }
-
-        .nav-tab-btn.active {
-            background: var(--accent-blue);
-            color: #fff;
-            box-shadow: 0 2px 8px rgba(59, 130, 246, 0.35);
-        }
-
-        /* Top Replay Bar */
-        .replay-strip {
-            background: #0a0e17;
-            border-bottom: 1px solid var(--border);
-            padding: 0.5rem 1.5rem;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            font-size: 0.75rem;
-        }
-
-        .replay-controls {
-            display: flex;
-            align-items: center;
-            gap: 0.6rem;
-        }
-
-        .btn-ctrl {
-            background: var(--bg-card);
-            color: var(--text-primary);
-            border: 1px solid var(--border);
-            border-radius: 4px;
-            padding: 0.25rem 0.55rem;
-            font-size: 0.72rem;
-            font-weight: 600;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 0.3rem;
-            transition: all 0.15s;
-        }
-
-        .btn-ctrl:hover {
-            background: var(--bg-card-hover);
-            border-color: var(--border-highlight);
-        }
-
-        .btn-ctrl.active {
-            background: var(--accent-cyan);
-            color: #000;
-            border-color: var(--accent-cyan);
-        }
-
-        .replay-timeline {
-            flex: 1;
-            max-width: 450px;
-            margin: 0 1rem;
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-        }
-
-        .timeline-slider {
-            flex: 1;
-            height: 4px;
-            -webkit-appearance: none;
-            background: var(--border-highlight);
-            border-radius: 2px;
-            outline: none;
-        }
-
-        .timeline-slider::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            width: 14px;
-            height: 14px;
-            border-radius: 50%;
-            background: var(--accent-cyan);
-            cursor: pointer;
-            box-shadow: 0 0 8px rgba(6, 182, 212, 0.7);
-        }
-
-        .replay-date-badge {
-            font-family: var(--font-mono);
-            font-weight: 700;
-            color: var(--accent-cyan);
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            padding: 0.2rem 0.6rem;
-            border-radius: 4px;
-            min-width: 95px;
-            text-align: center;
-        }
-
-        .system-status-badge {
-            display: flex;
-            align-items: center;
-            gap: 0.4rem;
-            font-family: var(--font-mono);
-            font-size: 0.72rem;
-            color: var(--success);
-            background: rgba(16, 185, 129, 0.1);
-            border: 1px solid rgba(16, 185, 129, 0.25);
-            padding: 0.25rem 0.65rem;
-            border-radius: 4px;
-        }
-
-        .status-dot {
-            width: 7px;
-            height: 7px;
-            background: var(--success);
-            border-radius: 50%;
-            animation: pulse 2s infinite;
-        }
-
-        @keyframes pulse {
-            0% { transform: scale(0.95); opacity: 0.9; }
-            50% { transform: scale(1.3); opacity: 0.5; }
-            100% { transform: scale(0.95); opacity: 0.9; }
-        }
-
-        /* Tab Content Pages */
-        .tab-content {
-            display: none;
-            padding: 1.25rem 1.5rem;
-            flex: 1;
-            max-width: 1800px;
-            width: 100%;
-            margin: 0 auto;
-        }
-
-        .tab-content.active {
-            display: block;
-        }
-
-        /* KPI Cards Grid */
-        .kpi-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-            gap: 1rem;
-            margin-bottom: 1.25rem;
-        }
-
-        .kpi-card {
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 1rem 1.2rem;
-            position: relative;
-            overflow: hidden;
-            transition: transform 0.2s, border-color 0.2s;
-        }
-
-        .kpi-card:hover {
-            transform: translateY(-2px);
-            border-color: var(--border-highlight);
-        }
-
-        .kpi-card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 3px;
-            height: 100%;
-            background: var(--accent-cyan);
-        }
-
-        .kpi-card.danger::before { background: var(--danger); }
-        .kpi-card.warning::before { background: var(--warning); }
-        .kpi-card.success::before { background: var(--success); }
-
-        .kpi-title {
-            font-size: 0.72rem;
-            font-weight: 700;
-            color: var(--text-secondary);
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .kpi-val {
-            font-size: 1.8rem;
-            font-weight: 800;
-            font-family: var(--font-mono);
-            color: #fff;
-            margin: 0.35rem 0 0.2rem 0;
-        }
-
-        .kpi-sub {
-            font-size: 0.72rem;
-            color: var(--text-muted);
-        }
-
-        /* Panels and Layout */
-        .grid-2col {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 1.25rem;
-        }
-
-        .grid-3col {
-            display: grid;
-            grid-template-columns: 2fr 1fr;
-            gap: 1.25rem;
-        }
-
-        @media (max-width: 1024px) {
-            .grid-2col, .grid-3col {
-                grid-template-columns: 1fr;
-            }
-        }
-
-        .panel {
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 1.2rem;
-            display: flex;
-            flex-direction: column;
-            gap: 1rem;
-        }
-
-        .panel-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding-bottom: 0.6rem;
-            border-bottom: 1px solid var(--border);
-        }
-
-        .panel-title {
-            font-size: 0.95rem;
-            font-weight: 700;
-            color: #fff;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .panel-title i {
-            color: var(--accent-cyan);
-        }
-
-        .panel-badge {
-            font-family: var(--font-mono);
-            font-size: 0.72rem;
-            color: var(--text-muted);
-        }
-
-        /* Map Container */
-        .map-wrapper {
-            position: relative;
-            border-radius: 8px;
-            overflow: hidden;
-            border: 1px solid var(--border);
-            height: 480px;
-        }
-
-        #gis-map, #command-map {
-            width: 100%;
-            height: 100%;
-            background: #080c14;
-        }
-
-        .map-layer-selector {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            background: rgba(15, 20, 32, 0.92);
-            backdrop-filter: blur(8px);
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            padding: 0.5rem 0.8rem;
-            z-index: 1000;
-            display: flex;
-            flex-direction: column;
-            gap: 0.35rem;
-            font-size: 0.75rem;
-        }
-
-        .layer-toggle-row {
-            display: flex;
-            align-items: center;
-            gap: 0.45rem;
-            color: var(--text-secondary);
-            cursor: pointer;
-        }
-
-        .layer-toggle-row input {
-            cursor: pointer;
-        }
-
-        /* Incident & Alert Lists */
-        .incident-list {
-            display: flex;
-            flex-direction: column;
-            gap: 0.65rem;
-        }
-
-        .incident-card {
-            background: var(--bg-surface);
-            border: 1px solid var(--border);
-            border-left: 3px solid var(--danger);
-            border-radius: 6px;
-            padding: 0.85rem;
-            cursor: pointer;
-            transition: all 0.15s;
-        }
-
-        .incident-card:hover {
-            background: var(--bg-card-hover);
-            border-color: var(--border-highlight);
-        }
-
-        .incident-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 0.35rem;
-        }
-
-        .incident-name {
-            font-weight: 700;
-            font-size: 0.85rem;
-            color: #fff;
-        }
-
-        .incident-badge {
-            font-size: 0.68rem;
-            font-family: var(--font-mono);
-            padding: 0.15rem 0.45rem;
-            border-radius: 3px;
-            font-weight: 700;
-            background: rgba(239, 68, 68, 0.15);
-            color: var(--danger);
-            border: 1px solid rgba(239, 68, 68, 0.3);
-        }
-
-        .incident-body {
-            font-size: 0.75rem;
-            color: var(--text-secondary);
-            line-height: 1.4;
-        }
-
-        /* Action Queue */
-        .action-card {
-            background: var(--bg-surface);
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            padding: 0.85rem;
-            margin-bottom: 0.65rem;
-        }
-
-        .action-card-header {
-            display: flex;
-            justify-content: space-between;
-            font-size: 0.82rem;
-            font-weight: 700;
-            color: #fff;
-            margin-bottom: 0.35rem;
-        }
-
-        .action-meta {
-            display: flex;
-            gap: 0.8rem;
-            font-size: 0.72rem;
-            color: var(--text-muted);
-            margin-top: 0.4rem;
-            font-family: var(--font-mono);
-        }
-
-        /* Scenario Lab Controls */
-        .scenario-control-group {
-            background: var(--bg-surface);
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            padding: 0.85rem;
-            display: flex;
-            flex-direction: column;
-            gap: 0.75rem;
-        }
-
-        .slider-row {
-            display: flex;
-            flex-direction: column;
-            gap: 0.25rem;
-        }
-
-        .slider-label-row {
-            display: flex;
-            justify-content: space-between;
-            font-size: 0.75rem;
-            font-weight: 600;
-            color: var(--text-secondary);
-        }
-
-        .slider-val-badge {
-            font-family: var(--font-mono);
-            color: var(--accent-cyan);
-            font-weight: 700;
-        }
-
-        .app-slider {
-            width: 100%;
-            height: 5px;
-            -webkit-appearance: none;
-            background: var(--border-highlight);
-            border-radius: 3px;
-            outline: none;
-        }
-
-        .app-slider::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            width: 15px;
-            height: 15px;
-            border-radius: 50%;
-            background: var(--accent-cyan);
-            cursor: pointer;
-        }
-
-        .btn-scenario-run {
-            background: linear-gradient(135deg, #0284c7, #2563eb);
-            color: #fff;
-            border: none;
-            border-radius: 6px;
-            padding: 0.65rem 1.2rem;
-            font-weight: 700;
-            font-size: 0.85rem;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0.5rem;
-            transition: all 0.2s;
-        }
-
-        .btn-scenario-run:hover {
-            filter: brightness(1.15);
-            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
-        }
-
-        .btn-scenario-run:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-
-        /* Benchmark & Technical Tables */
-        .tech-table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 0.78rem;
-            text-align: left;
-        }
-
-        .tech-table th {
-            background: var(--bg-surface);
-            color: var(--text-secondary);
-            padding: 0.6rem 0.8rem;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            border-bottom: 1px solid var(--border);
-        }
-
-        .tech-table td {
-            padding: 0.6rem 0.8rem;
-            border-bottom: 1px solid var(--border);
-            color: var(--text-primary);
-            font-family: var(--font-mono);
-        }
-
-        .tech-table tr:hover td {
-            background: var(--bg-card-hover);
-        }
-
-        /* Disclaimer Footer */
-        footer {
-            background: var(--bg-surface);
-            border-top: 1px solid var(--border);
-            padding: 0.5rem 1.5rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-size: 0.72rem;
-            color: var(--text-muted);
-            font-family: var(--font-mono);
-            margin-top: auto;
-        }
-
-        .spinner {
-            display: inline-block;
-            width: 14px;
-            height: 14px;
-            border: 2px solid rgba(255,255,255,0.3);
-            border-radius: 50%;
-            border-top-color: #fff;
-            animation: spin 0.8s ease-in-out infinite;
-        }
-
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-
-        /* Slide-over Inspection Drawer */
-        .drawer-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            background: rgba(0, 0, 0, 0.75);
-            backdrop-filter: blur(4px);
-            z-index: 2000;
-            display: none;
-        }
-
-        .drawer-overlay.open {
-            display: block;
-        }
-
-        .drawer {
-            position: fixed;
-            top: 0;
-            right: 0;
-            width: 560px;
-            max-width: 90vw;
-            height: 100vh;
-            background: var(--bg-surface);
-            border-left: 1px solid var(--border);
-            z-index: 2001;
-            transform: translateX(100%);
-            transition: transform 0.25s ease-out;
-            overflow-y: auto;
-            padding: 1.5rem;
-            display: flex;
-            flex-direction: column;
-            gap: 1.2rem;
-        }
-
-        .drawer.open {
-            transform: translateX(0);
-        }
-
-        .drawer-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 1px solid var(--border);
-            padding-bottom: 0.75rem;
-        }
-
-        .drawer-title {
-            font-size: 1.15rem;
-            font-weight: 800;
-            color: #fff;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .close-btn {
-            background: transparent;
-            border: none;
-            color: var(--text-muted);
-            font-size: 1.4rem;
-            cursor: pointer;
-        }
-
-        .close-btn:hover {
-            color: #fff;
-        }
+            --bg-base: #080b11; --bg-surface: #0f1420; --bg-card: #151b2c;
+            --bg-card-hover: #1c243a; --bg-elevated: #222c46;
+            --border: #1e293b; --border-hl: #334155;
+            --text-1: #f8fafc; --text-2: #94a3b8; --text-3: #64748b;
+            --cyan: #06b6d4; --blue: #3b82f6; --indigo: #6366f1;
+            --green: #10b981; --amber: #f59e0b; --red: #ef4444;
+            --font: 'Inter', -apple-system, sans-serif;
+            --mono: 'JetBrains Mono', monospace;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { background: var(--bg-base); color: var(--text-1); font-family: var(--font); min-height: 100vh; display: flex; flex-direction: column; }
+        header { background: var(--bg-surface); border-bottom: 1px solid var(--border); padding: 0.5rem 1.2rem; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 1000; }
+        .hdr-brand { display: flex; align-items: center; gap: 0.8rem; }
+        .hdr-brand .logo { font-size: 1.2rem; color: var(--cyan); text-shadow: 0 0 10px rgba(6,182,212,0.4); }
+        .hdr-brand h1 { font-size: 1.15rem; font-weight: 800; letter-spacing: 0.06em; }
+        .hdr-brand .sub { font-size: 0.68rem; color: var(--text-3); border-left: 1px solid var(--border); padding-left: 0.7rem; text-transform: uppercase; letter-spacing: 0.04em; }
+        .hdr-right { display: flex; align-items: center; gap: 0.8rem; font-size: 0.72rem; }
+        .hdr-right .data-mode { padding: 0.25rem 0.6rem; background: rgba(245,158,11,0.12); border: 1px solid rgba(245,158,11,0.3); border-radius: 4px; color: var(--amber); font-family: var(--mono); font-weight: 600; }
+        .hdr-right .replay-date { color: var(--cyan); font-family: var(--mono); font-weight: 700; }
+        nav { background: var(--bg-surface); border-bottom: 1px solid var(--border); display: flex; overflow-x: auto; padding: 0 1rem; }
+        .nav-btn { background: none; border: none; color: var(--text-3); font-family: var(--font); font-size: 0.76rem; font-weight: 600; padding: 0.65rem 0.9rem; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap; transition: all 0.15s; }
+        .nav-btn:hover { color: var(--text-2); }
+        .nav-btn.active { color: var(--cyan); border-bottom-color: var(--cyan); }
+        .replay-bar { background: var(--bg-surface); border-bottom: 1px solid var(--border); padding: 0.4rem 1.2rem; display: flex; align-items: center; gap: 0.7rem; font-size: 0.72rem; }
+        .replay-bar button { background: var(--bg-card); border: 1px solid var(--border); color: var(--text-2); padding: 0.25rem 0.55rem; border-radius: 4px; cursor: pointer; font-family: var(--mono); font-size: 0.7rem; transition: all 0.15s; }
+        .replay-bar button:hover { background: var(--bg-elevated); color: #fff; }
+        .replay-bar input[type=range] { flex: 1; accent-color: var(--cyan); height: 6px; }
+        .replay-bar select { background: var(--bg-card); border: 1px solid var(--border); color: var(--text-2); padding: 0.2rem 0.35rem; border-radius: 4px; font-family: var(--mono); font-size: 0.68rem; }
+        .tab-content { display: none; padding: 1rem 1.2rem; flex: 1; }
+        .tab-content.active { display: block; }
+        .grid-3 { display: grid; grid-template-columns: 2fr 1fr; gap: 1rem; }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+        .grid-k { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 0.7rem; margin-bottom: 1rem; }
+        .panel { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; }
+        .panel-hdr { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.7rem; }
+        .panel-title { font-size: 0.82rem; font-weight: 700; color: #fff; display: flex; align-items: center; gap: 0.4rem; }
+        .panel-badge { font-size: 0.62rem; font-family: var(--mono); padding: 0.15rem 0.45rem; border-radius: 3px; background: rgba(6,182,212,0.1); border: 1px solid rgba(6,182,212,0.2); color: var(--cyan); }
+        .kpi { text-align: center; padding: 0.7rem 0.5rem; }
+        .kpi .val { font-size: 1.5rem; font-weight: 800; font-family: var(--mono); color: #fff; }
+        .kpi .lbl { font-size: 0.62rem; color: var(--text-3); text-transform: uppercase; margin-top: 0.15rem; font-weight: 600; }
+        .kpi .detail { font-size: 0.58rem; color: var(--text-3); margin-top: 0.1rem; }
+        .kpi.green .val { color: var(--green); }
+        .kpi.red .val { color: var(--red); }
+        .kpi.amber .val { color: var(--amber); }
+        .kpi.cyan .val { color: var(--cyan); }
+        .map-wrap { height: 400px; border-radius: 6px; overflow: hidden; border: 1px solid var(--border); }
+        .map-wrap.tall { height: 580px; }
+        #command-map, #gis-map { height: 100%; width: 100%; }
+        .inc-card { background: var(--bg-surface); border: 1px solid var(--border); border-left: 3px solid var(--red); border-radius: 6px; padding: 0.6rem 0.75rem; margin-bottom: 0.5rem; cursor: pointer; transition: all 0.15s; }
+        .inc-card:hover { border-color: var(--border-hl); background: var(--bg-card-hover); }
+        .inc-card .hdr { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.2rem; }
+        .inc-card .name { font-weight: 700; font-size: 0.76rem; color: #fff; }
+        .inc-card .sev { font-size: 0.6rem; font-family: var(--mono); padding: 0.1rem 0.35rem; border-radius: 3px; font-weight: 700; }
+        .sev-CRITICAL { background: rgba(239,68,68,0.15); color: var(--red); border: 1px solid rgba(239,68,68,0.3); }
+        .sev-HIGH { background: rgba(245,158,11,0.15); color: var(--amber); border: 1px solid rgba(245,158,11,0.3); }
+        .sev-MEDIUM { background: rgba(6,182,212,0.15); color: var(--cyan); border: 1px solid rgba(6,182,212,0.3); }
+        .inc-card .body { font-size: 0.7rem; color: var(--text-2); line-height: 1.35; }
+        .act-card { background: var(--bg-surface); border: 1px solid var(--border); border-radius: 6px; padding: 0.6rem 0.75rem; margin-bottom: 0.5rem; }
+        .act-card .top { display: flex; justify-content: space-between; font-weight: 700; color: #fff; font-size: 0.78rem; }
+        .act-card .meta { display: flex; gap: 1rem; font-size: 0.68rem; color: var(--text-2); margin-top: 0.25rem; }
+        .act-card .desc { font-size: 0.7rem; color: var(--text-2); margin-top: 0.15rem; }
+        .eng-row { display: flex; justify-content: space-between; align-items: center; padding: 0.35rem 0; border-bottom: 1px solid var(--border); font-size: 0.74rem; }
+        .eng-row:last-child { border-bottom: none; }
+        .eng-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 0.4rem; }
+        .eng-dot.op { background: var(--green); box-shadow: 0 0 6px rgba(16,185,129,0.5); }
+        .eng-dot.deg { background: var(--amber); box-shadow: 0 0 6px rgba(245,158,11,0.5); }
+        .eng-dot.off { background: var(--red); }
+        .slider-grp { margin-bottom: 0.7rem; }
+        .slider-grp .row { display: flex; justify-content: space-between; font-size: 0.74rem; color: var(--text-2); margin-bottom: 0.2rem; }
+        .slider-grp .row .v { font-family: var(--mono); color: var(--cyan); font-weight: 600; }
+        .slider-grp input[type=range] { width: 100%; accent-color: var(--cyan); }
+        .btn-run { width: 100%; padding: 0.6rem; background: linear-gradient(135deg, rgba(6,182,212,0.2), rgba(99,102,241,0.2)); border: 1px solid var(--cyan); color: var(--cyan); font-family: var(--font); font-weight: 700; font-size: 0.78rem; border-radius: 6px; cursor: pointer; transition: all 0.15s; margin: 0.4rem 0; display: flex; align-items: center; justify-content: center; gap: 0.4rem; }
+        .btn-run:hover { background: linear-gradient(135deg, rgba(6,182,212,0.3), rgba(99,102,241,0.3)); }
+        .btn-run:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-sm { padding: 0.35rem 0.6rem; font-size: 0.7rem; font-family: var(--mono); background: var(--bg-surface); border: 1px solid var(--border); color: var(--text-2); border-radius: 4px; cursor: pointer; transition: all 0.15s; display: inline-flex; align-items: center; gap: 0.3rem; }
+        .btn-sm:hover { background: var(--bg-elevated); color: #fff; border-color: var(--border-hl); }
+        .btn-sm.primary { background: rgba(6,182,212,0.15); border-color: var(--cyan); color: var(--cyan); }
+        .btn-sm.danger { background: rgba(239,68,68,0.15); border-color: var(--red); color: var(--red); }
+        .btn-sm.success { background: rgba(16,185,129,0.15); border-color: var(--green); color: var(--green); }
+        .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(6,182,212,0.3); border-top-color: var(--cyan); border-radius: 50%; animation: spin 0.6s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .tech-tbl { width: 100%; border-collapse: collapse; font-size: 0.74rem; }
+        .tech-tbl th { text-align: left; color: var(--text-3); font-weight: 600; padding: 0.4rem 0.5rem; border-bottom: 1px solid var(--border); }
+        .tech-tbl td { padding: 0.4rem 0.5rem; border-bottom: 1px solid var(--border); color: var(--text-2); }
+        .tech-tbl tr.hl { background: rgba(59,130,246,0.08); }
+        .tech-tbl tr.hl td { color: #fff; font-weight: 600; }
+        .trust-bar { margin-bottom: 0.35rem; }
+        .trust-bar .row { display: flex; justify-content: space-between; font-size: 0.68rem; color: var(--text-2); margin-bottom: 0.1rem; }
+        .trust-bar .track { height: 4px; background: var(--bg-surface); border-radius: 2px; overflow: hidden; }
+        .trust-bar .fill { height: 100%; background: var(--cyan); border-radius: 2px; transition: width 0.3s; }
+        .drawer-bg { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 2000; opacity: 0; pointer-events: none; transition: opacity 0.2s; }
+        .drawer-bg.open { opacity: 1; pointer-events: all; }
+        .drawer { position: fixed; right: 0; top: 0; bottom: 0; width: 440px; background: var(--bg-card); border-left: 1px solid var(--border); z-index: 2001; transform: translateX(100%); transition: transform 0.25s; overflow-y: auto; padding: 1rem; }
+        .drawer.open { transform: translateX(0); }
+        .drawer .dhdr { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.8rem; }
+        .drawer .dhdr h3 { font-size: 0.9rem; color: var(--cyan); }
+        .drawer .close { background: none; border: none; color: var(--text-3); font-size: 1.4rem; cursor: pointer; }
+        .data-tbl { width: 100%; border-collapse: collapse; font-size: 0.72rem; }
+        .data-tbl th { text-align: left; color: var(--text-3); font-weight: 600; padding: 0.4rem 0.5rem; border-bottom: 1px solid var(--border); position: sticky; top: 0; background: var(--bg-card); cursor: pointer; white-space: nowrap; }
+        .data-tbl th:hover { color: var(--cyan); }
+        .data-tbl td { padding: 0.4rem 0.5rem; border-bottom: 1px solid var(--border); color: var(--text-2); font-family: var(--mono); font-size: 0.68rem; white-space: nowrap; }
+        .data-tbl tr:hover { background: var(--bg-card-hover); }
+        .prov-item { display: flex; justify-content: space-between; padding: 0.3rem 0; border-bottom: 1px solid var(--border); font-size: 0.74rem; }
+        .prov-item .k { color: var(--text-3); }
+        .prov-item .v { color: var(--text-2); font-family: var(--mono); text-align: right; }
+        .why-btn { background: rgba(6,182,212,0.08); border: 1px solid rgba(6,182,212,0.2); color: var(--cyan); font-size: 0.65rem; font-family: var(--mono); padding: 0.15rem 0.4rem; border-radius: 3px; cursor: pointer; }
+        .why-btn:hover { background: rgba(6,182,212,0.15); }
+        .filter-bar { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.8rem; background: var(--bg-surface); padding: 0.6rem 0.8rem; border-radius: 6px; border: 1px solid var(--border); align-items: center; }
+        .filter-bar input, .filter-bar select { background: var(--bg-card); border: 1px solid var(--border); color: var(--text-1); padding: 0.3rem 0.5rem; border-radius: 4px; font-family: var(--mono); font-size: 0.7rem; }
+        .filter-bar input:focus, .filter-bar select:focus { border-color: var(--cyan); outline: none; }
+        .pag-bar { display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0; border-top: 1px solid var(--border); margin-top: 0.5rem; font-size: 0.72rem; font-family: var(--mono); color: var(--text-2); }
+        .pag-btns { display: flex; gap: 0.3rem; }
+        footer { background: var(--bg-surface); border-top: 1px solid var(--border); padding: 0.45rem 1.2rem; display: flex; justify-content: space-between; font-size: 0.62rem; color: var(--text-3); font-family: var(--mono); }
+        .loading { color: var(--text-3); font-size: 0.75rem; padding: 1rem; text-align: center; }
+        .err { color: var(--red); font-size: 0.72rem; font-family: var(--mono); }
+        .modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 3000; display: none; align-items: center; justify-content: center; }
+        .modal-bg.open { display: flex; }
+        .modal { background: var(--bg-card); border: 1px solid var(--border-hl); border-radius: 8px; width: 480px; max-width: 90vw; padding: 1.2rem; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        .modal h3 { font-size: 0.95rem; color: #fff; margin-bottom: 0.8rem; display: flex; justify-content: space-between; align-items: center; }
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; margin-bottom: 1rem; }
+        .form-grp { display: flex; flex-direction: column; gap: 0.2rem; }
+        .form-grp label { font-size: 0.68rem; color: var(--text-2); font-weight: 600; }
+        .form-grp input, .form-grp select { background: var(--bg-surface); border: 1px solid var(--border); color: #fff; padding: 0.35rem 0.5rem; border-radius: 4px; font-family: var(--mono); font-size: 0.72rem; }
     </style>
 </head>
 <body>
-
-    <!-- App Header -->
     <header>
-        <div class="header-brand">
-            <i class="fa-solid fa-water-ladder logo-icon"></i>
-            <div>
-                <div class="brand-title">JALNETRA</div>
-            </div>
-            <div class="brand-sub">Groundwater Decision Intelligence</div>
+        <div class="hdr-brand">
+            <span class="logo"><i class="fa-solid fa-water"></i></span>
+            <h1>JALNETRA</h1>
+            <span class="sub">Groundwater Decision Intelligence</span>
         </div>
-
-        <!-- 6 Navigation Tabs -->
-        <nav class="nav-tabs">
-            <button class="nav-tab-btn active" onclick="switchTab('command')">
-                <i class="fa-solid fa-satellite"></i> Command
-            </button>
-            <button class="nav-tab-btn" onclick="switchTab('map')">
-                <i class="fa-solid fa-map-location-dot"></i> Basin Map
-            </button>
-            <button class="nav-tab-btn" onclick="switchTab('forecast')">
-                <i class="fa-solid fa-chart-line"></i> Forecast & Horizon
-            </button>
-            <button class="nav-tab-btn" onclick="switchTab('scenario')">
-                <i class="fa-solid fa-flask-vial"></i> Scenario Lab
-            </button>
-            <button class="nav-tab-btn" onclick="switchTab('optimizer')">
-                <i class="fa-solid fa-calculator"></i> Optimizer
-            </button>
-            <button class="nav-tab-btn" onclick="switchTab('technical')">
-                <i class="fa-solid fa-microchip"></i> Technical
-            </button>
-        </nav>
-
-        <div style="display: flex; align-items: center; gap: 0.8rem;">
-            <div class="system-status-badge">
-                <div class="status-dot"></div> VERIFIED
-            </div>
-            <button class="btn-ctrl" onclick="openDrawer('explain')">
-                <i class="fa-solid fa-brain"></i> Explain
-            </button>
+        <div class="hdr-right">
+            <span class="data-mode" id="g-data-mode">LOADING...</span>
+            <span class="replay-date" id="g-replay-date">—</span>
+            <span style="color:var(--text-3)">DAY <span id="g-replay-day">—</span>/365</span>
+            <button class="why-btn" onclick="openDrawer()"><i class="fa-solid fa-brain"></i> Explain</button>
         </div>
     </header>
 
-    <!-- Top Live Replay Player -->
-    <div class="replay-strip">
-        <div class="replay-controls">
-            <span style="font-weight: 700; color: var(--text-secondary); text-transform: uppercase; font-size: 0.7rem;">
-                <i class="fa-regular fa-clock"></i> Replay Mode:
-            </span>
-            <button class="btn-ctrl" id="btn-play" onclick="togglePlay()"><i class="fa-solid fa-play"></i> Play</button>
-            <button class="btn-ctrl" onclick="stepReplay(1)">+1D</button>
-            <button class="btn-ctrl" onclick="stepReplay(7)">+7D</button>
-            <select class="btn-ctrl" id="replay-speed">
-                <option value="1">1×</option>
-                <option value="5" selected>5×</option>
-                <option value="20">20×</option>
-            </select>
-            <button class="btn-ctrl" onclick="resetReplay()"><i class="fa-solid fa-rotate-left"></i> Reset</button>
-        </div>
+    <nav>
+        <button class="nav-btn active" onclick="switchTab('command')">🛰️ Command</button>
+        <button class="nav-btn" onclick="switchTab('data')">📊 SQLite Observatory</button>
+        <button class="nav-btn" onclick="switchTab('map')">🗺️ Map</button>
+        <button class="nav-btn" onclick="switchTab('forecast')">📈 Forecast</button>
+        <button class="nav-btn" onclick="switchTab('scenario')">🧪 Scenario</button>
+        <button class="nav-btn" onclick="switchTab('optimizer')">🧮 Optimizer</button>
+        <button class="nav-btn" onclick="switchTab('technical')">🔬 Technical</button>
+    </nav>
 
-        <div class="replay-timeline">
-            <input type="range" min="0" max="364" value="364" class="timeline-slider" id="replay-slider" oninput="onSliderMove()">
-            <div class="replay-date-badge" id="replay-date-display">2026-08-19</div>
-        </div>
+    <div class="replay-bar">
+        <button id="btn-play" onclick="togglePlay()"><i class="fa-solid fa-play"></i> Play</button>
+        <button onclick="stepReplay(1)">+1D</button>
+        <button onclick="stepReplay(7)">+7D</button>
+        <button onclick="resetReplay()"><i class="fa-solid fa-rotate-left"></i></button>
+        <input type="range" id="replay-slider" min="0" max="364" value="364" oninput="onSliderMove()">
+        <select id="replay-speed"><option value="1">1×</option><option value="5">5×</option><option value="20">20×</option></select>
+    </div>
 
-        <div style="font-size: 0.72rem; color: var(--text-muted); font-family: var(--font-mono);">
-            Day <span id="replay-day-index" style="color:#fff; font-weight:700;">365</span> / 365
+    <!-- ===== TAB 1: COMMAND CENTER ===== -->
+    <div class="tab-content active" id="tab-command">
+        <div class="grid-k" id="kpi-grid"><!-- KPIs populated by JS --></div>
+        <div class="grid-3">
+            <div>
+                <div class="panel" style="margin-bottom:1rem;">
+                    <div class="panel-hdr"><div class="panel-title"><i class="fa-solid fa-map"></i> Basin Telemetry Map</div><div class="panel-badge" id="cmd-map-badge">—</div></div>
+                    <div class="map-wrap"><div id="command-map"></div></div>
+                </div>
+                <div class="panel">
+                    <div class="panel-hdr"><div class="panel-title"><i class="fa-solid fa-server"></i> Engine Health</div><div class="panel-badge">COMPUTED</div></div>
+                    <div id="engine-health-list"><!-- Populated by JS --></div>
+                </div>
+            </div>
+            <div>
+                <div class="panel" style="margin-bottom:1rem;">
+                    <div class="panel-hdr"><div class="panel-title"><i class="fa-solid fa-triangle-exclamation"></i> Incident Radar</div><div class="panel-badge" id="inc-badge">—</div></div>
+                    <div id="incident-list"><div class="loading">Loading incidents...</div></div>
+                </div>
+                <div class="panel">
+                    <div class="panel-hdr"><div class="panel-title"><i class="fa-solid fa-bolt"></i> Priority Action Queue</div><div class="panel-badge">MCDA + OR-TOOLS</div></div>
+                    <div id="action-queue"><div class="loading">Loading actions...</div></div>
+                </div>
+            </div>
         </div>
     </div>
 
-    <!-- TAB 1: 🛰️ COMMAND CENTER -->
-    <main class="tab-content active" id="tab-command">
-        <!-- 5 Major KPI Cards -->
-        <div class="kpi-grid">
-            <div class="kpi-card success">
-                <div class="kpi-title">System Health <i class="fa-solid fa-heart-pulse"></i></div>
-                <div class="kpi-val" id="kpi-sys-health">98%</div>
-                <div class="kpi-sub">All 8 engines operating normally</div>
-            </div>
-            <div class="kpi-card">
-                <div class="kpi-title">Active DWLR Stations <i class="fa-solid fa-tower-broadcast"></i></div>
-                <div class="kpi-val" id="kpi-cmd-stations">20</div>
-                <div class="kpi-sub">Real telemetry streams verified</div>
-            </div>
-            <div class="kpi-card danger">
-                <div class="kpi-title">Active Incidents <i class="fa-solid fa-triangle-exclamation"></i></div>
-                <div class="kpi-val" id="kpi-cmd-incidents">3</div>
-                <div class="kpi-sub">Correlated regional depletion clusters</div>
-            </div>
-            <div class="kpi-card warning">
-                <div class="kpi-title">High-Risk Zones <i class="fa-solid fa-shield-halved"></i></div>
-                <div class="kpi-val" id="kpi-cmd-highrisk">2</div>
-                <div class="kpi-sub">MCDA priority score ≥ 50.0</div>
-            </div>
-            <div class="kpi-card">
-                <div class="kpi-title">Actions Recommended <i class="fa-solid fa-list-check"></i></div>
-                <div class="kpi-val" id="kpi-cmd-actions">6</div>
-                <div class="kpi-sub">Optimal resource portfolio ready</div>
-            </div>
-        </div>
-
-        <!-- Layout Grid: Map + Incidents & Actions -->
-        <div class="grid-3col">
-            <div class="panel">
-                <div class="panel-header">
-                    <div class="panel-title"><i class="fa-solid fa-map"></i> Basin Risk & Sensor Telemetry Map</div>
-                    <div class="panel-badge">NORTH-CENTRAL BASIN &bull; EPSG:4326</div>
-                </div>
-                <div class="map-wrapper" style="height: 420px;">
-                    <div id="command-map"></div>
+    <!-- ===== TAB 2: SQLITE DATA OBSERVATORY ===== -->
+    <div class="tab-content" id="tab-data">
+        <div class="panel" style="margin-bottom:1rem;">
+            <div class="panel-hdr">
+                <div class="panel-title"><i class="fa-solid fa-database"></i> SQLite Database Control & Live Telemetry Explorer</div>
+                <div style="display:flex; gap:0.4rem;">
+                    <button class="btn-sm primary" onclick="openInjectModal()"><i class="fa-solid fa-bolt"></i> ⚡ Inject Reading / Spike</button>
+                    <button class="btn-sm danger" onclick="resetDatabase()"><i class="fa-solid fa-rotate-left"></i> Reset SQLite DB</button>
+                    <button class="btn-sm success" onclick="exportCSV()"><i class="fa-solid fa-download"></i> Download CSV</button>
                 </div>
             </div>
 
-            <div style="display: flex; flex-direction: column; gap: 1.25rem;">
-                <!-- Incident Radar -->
-                <div class="panel">
-                    <div class="panel-header">
-                        <div class="panel-title"><i class="fa-solid fa-radar"></i> Incident Radar</div>
-                        <div class="panel-badge">REAL-TIME CLUSTERS</div>
-                    </div>
-                    <div class="incident-list" id="command-incident-list">
-                        <!-- Populated by JS -->
-                    </div>
-                </div>
-
-                <!-- Action Queue -->
-                <div class="panel">
-                    <div class="panel-header">
-                        <div class="panel-title"><i class="fa-solid fa-bolt"></i> Prioritized Action Queue</div>
-                        <div class="panel-badge">MCDA + OR-TOOLS</div>
-                    </div>
-                    <div id="command-action-queue">
-                        <!-- Populated by JS -->
-                    </div>
-                </div>
-            </div>
-        </div>
-    </main>
-
-    <!-- TAB 2: 🗺️ INTELLIGENT GROUNDWATER MAP -->
-    <main class="tab-content" id="tab-map">
-        <div class="grid-3col">
-            <div class="panel" style="padding: 0; overflow: hidden;">
-                <div class="map-wrapper" style="height: 680px; border: none; border-radius: 8px;">
-                    <div id="gis-map"></div>
-                    <div class="map-layer-selector">
-                        <div style="font-weight: 700; color: #fff; margin-bottom: 0.2rem;">MAP LAYERS</div>
-                        <label class="layer-toggle-row"><input type="checkbox" id="layer-stations" checked onchange="updateMapLayers()"> DWLR Wells</label>
-                        <label class="layer-toggle-row"><input type="checkbox" id="layer-incidents" checked onchange="updateMapLayers()"> Regional Incidents</label>
-                        <label class="layer-toggle-row"><input type="checkbox" id="layer-expansion" checked onchange="updateMapLayers()"> QRP Monitoring Gap</label>
-                    </div>
-                </div>
+            <!-- Search and Filter Bar -->
+            <div class="filter-bar">
+                <input type="text" id="db-search" placeholder="Search station or date..." style="width:160px;" oninput="debounce(loadDbExplorer, 300)()">
+                <select id="db-filter-station" onchange="loadDbExplorer()"><option value="ALL">All Stations (20)</option></select>
+                <input type="date" id="db-start-date" onchange="loadDbExplorer()">
+                <input type="date" id="db-end-date" onchange="loadDbExplorer()">
+                <input type="number" id="db-min-level" placeholder="Min level (m)" style="width:100px;" step="0.1" oninput="debounce(loadDbExplorer, 300)()">
+                <input type="number" id="db-max-level" placeholder="Max level (m)" style="width:100px;" step="0.1" oninput="debounce(loadDbExplorer, 300)()">
+                <select id="db-sort" onchange="loadDbExplorer()">
+                    <option value="-date">Newest First</option>
+                    <option value="date">Oldest First</option>
+                    <option value="-water_level_m">Water Level (High -> Low)</option>
+                    <option value="water_level_m">Water Level (Low -> High)</option>
+                    <option value="station_id">Station ID (A-Z)</option>
+                </select>
+                <select id="db-page-size" onchange="loadDbExplorer()">
+                    <option value="25">25 / page</option>
+                    <option value="50" selected>50 / page</option>
+                    <option value="100">100 / page</option>
+                    <option value="500">500 / page</option>
+                    <option value="10000">ALL 7,300</option>
+                </select>
+                <button class="btn-sm" onclick="resetDbFilters()"><i class="fa-solid fa-filter-circle-xmark"></i> Clear Filters</button>
             </div>
 
-            <!-- Side Inspector Panel -->
-            <div class="panel" id="map-inspector-panel">
-                <div class="panel-header">
-                    <div class="panel-title"><i class="fa-solid fa-circle-info"></i> Station / Region Inspector</div>
-                    <div class="panel-badge" id="inspector-id">DWLR-001</div>
-                </div>
-
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
-                    <div class="action-card">
-                        <div style="font-size: 0.7rem; color: var(--text-muted);">CURRENT WATER LEVEL</div>
-                        <div style="font-size: 1.35rem; font-weight: 800; font-family: var(--font-mono); color: #fff;" id="insp-level">8.08 m</div>
-                    </div>
-                    <div class="action-card">
-                        <div style="font-size: 0.7rem; color: var(--text-muted);">DATA TRUST SCORE</div>
-                        <div style="font-size: 1.35rem; font-weight: 800; font-family: var(--font-mono); color: var(--success);" id="insp-trust">92.2%</div>
-                    </div>
-                </div>
-
-                <div>
-                    <div style="font-size: 0.75rem; font-weight: 700; color: var(--text-secondary); margin-bottom: 0.4rem;">
-                        7-FACTOR QUALITY ASSESSMENT (TSOD + GEMS-QC)
-                    </div>
-                    <div id="insp-trust-bars" style="display: flex; flex-direction: column; gap: 0.45rem;">
-                        <!-- Populated by JS -->
-                    </div>
-                </div>
-
-                <div>
-                    <div style="font-size: 0.75rem; font-weight: 700; color: var(--text-secondary); margin-bottom: 0.4rem;">
-                        30-DAY HYDROGRAPH (HISTORICAL)
-                    </div>
-                    <div style="height: 160px;">
-                        <canvas id="mini-hydrograph-chart"></canvas>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </main>
-
-    <!-- TAB 3: 📈 FORECAST & STRESS HORIZON -->
-    <main class="tab-content" id="tab-forecast">
-        <div class="grid-3col">
-            <div class="panel">
-                <div class="panel-header">
-                    <div class="panel-title"><i class="fa-solid fa-chart-area"></i> Groundwater Level Hydrograph & 90-Day Forecast</div>
-                    <div style="display: flex; gap: 0.5rem;">
-                        <select class="btn-ctrl" id="forecast-station-select" onchange="onForecastStationChange()">
-                            <!-- Populated with 20 stations -->
-                        </select>
-                    </div>
-                </div>
-
-                <div style="height: 420px;">
-                    <canvas id="main-forecast-chart"></canvas>
-                </div>
-
-                <div style="display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--text-muted); font-family: var(--font-mono); padding-top: 0.5rem; border-top: 1px solid var(--border);">
-                    <span>● BLUE = Historical Observed Telemetry</span>
-                    <span>● CYAN = Ridge P50 Predicted Trajectory</span>
-                    <span>░ SHADED = P10 - P90 Uncertainty Cone</span>
-                    <span>─ RED = Critical Aquifer Threshold (15.0m)</span>
-                </div>
-            </div>
-
-            <div style="display: flex; flex-direction: column; gap: 1.25rem;">
-                <!-- Stress Horizon Gauge Card -->
-                <div class="panel" style="text-align: center;">
-                    <div class="panel-header">
-                        <div class="panel-title"><i class="fa-solid fa-hourglass-half"></i> Modeled Stress Horizon</div>
-                        <div class="panel-badge">THRESHOLD 15.0m</div>
-                    </div>
-                    
-                    <div style="margin: 1.2rem 0;">
-                        <div style="font-size: 3.2rem; font-weight: 800; font-family: var(--font-mono); color: var(--warning);" id="gauge-horizon-days">116</div>
-                        <div style="font-size: 0.78rem; font-weight: 700; color: var(--text-secondary); text-transform: uppercase;">DAYS UNTIL CRITICAL THRESHOLD</div>
-                    </div>
-
-                    <div style="font-size: 0.74rem; color: var(--text-muted); line-height: 1.4; text-align: left; background: var(--bg-surface); padding: 0.75rem; border-radius: 6px; border: 1px solid var(--border);">
-                        Estimated forward timeline until modeled groundwater level crosses the unconfined aquifer dewatering limit.
-                    </div>
-                </div>
-
-                <!-- Forecast Metrics -->
-                <div class="panel">
-                    <div class="panel-header">
-                        <div class="panel-title"><i class="fa-solid fa-square-poll-vertical"></i> Forecast Validation Metrics</div>
-                        <div class="panel-badge">RIDGE SEASONAL</div>
-                    </div>
-
-                    <div style="display: flex; flex-direction: column; gap: 0.6rem; font-size: 0.78rem;">
-                        <div style="display: flex; justify-content: space-between;">
-                            <span style="color: var(--text-secondary);">Current Water Level:</span>
-                            <span style="font-family: var(--font-mono); font-weight: 700; color: #fff;" id="metric-cur-level">8.08 m</span>
-                        </div>
-                        <div style="display: flex; justify-content: space-between;">
-                            <span style="color: var(--text-secondary);">Predicted 90d Level:</span>
-                            <span style="font-family: var(--font-mono); font-weight: 700; color: var(--accent-cyan);" id="metric-pred-level">7.91 m</span>
-                        </div>
-                        <div style="display: flex; justify-content: space-between;">
-                            <span style="color: var(--text-secondary);">Validation MAE:</span>
-                            <span style="font-family: var(--font-mono); color: #fff;">0.18 m</span>
-                        </div>
-                        <div style="display: flex; justify-content: space-between;">
-                            <span style="color: var(--text-secondary);">Validation RMSE:</span>
-                            <span style="font-family: var(--font-mono); color: #fff;">0.24 m</span>
-                        </div>
-                        <div style="display: flex; justify-content: space-between;">
-                            <span style="color: var(--text-secondary);">Model Determination (R²):</span>
-                            <span style="font-family: var(--font-mono); color: var(--success); font-weight: 700;">0.94</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </main>
-
-    <!-- TAB 4: 🧪 SCENARIO LAB (WHAT IF?) -->
-    <main class="tab-content" id="tab-scenario">
-        <div class="grid-3col">
-            <!-- Scenario Hydrograph Recalculation -->
-            <div class="panel">
-                <div class="panel-header">
-                    <div class="panel-title"><i class="fa-solid fa-chart-line"></i> Dynamic What-If System Response</div>
-                    <div class="panel-badge" id="scenario-engine-badge">USGS MODFLOW 6 / ANALYTICAL</div>
-                </div>
-
-                <div style="height: 380px;">
-                    <canvas id="scenario-response-chart"></canvas>
-                </div>
-
-                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.8rem; margin-top: 0.5rem;">
-                    <div class="action-card">
-                        <div style="font-size: 0.7rem; color: var(--text-muted);">BASELINE HEAD</div>
-                        <div style="font-size: 1.3rem; font-weight: 800; font-family: var(--font-mono); color: #fff;">8.10 m</div>
-                    </div>
-                    <div class="action-card">
-                        <div style="font-size: 0.7rem; color: var(--text-muted);">SCENARIO HEAD</div>
-                        <div style="font-size: 1.3rem; font-weight: 800; font-family: var(--font-mono); color: var(--success);" id="scen-res-head">8.72 m</div>
-                    </div>
-                    <div class="action-card">
-                        <div style="font-size: 0.7rem; color: var(--text-muted);">HEAD RECOVERY (Δh)</div>
-                        <div style="font-size: 1.3rem; font-weight: 800; font-family: var(--font-mono); color: var(--accent-cyan);" id="scen-res-delta">+0.62 m</div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Controls Panel -->
-            <div class="panel">
-                <div class="panel-header">
-                    <div class="panel-title"><i class="fa-solid fa-sliders"></i> Scenario Parameters</div>
-                    <div class="panel-badge">INTERACTIVE</div>
-                </div>
-
-                <div class="scenario-control-group">
-                    <div class="slider-row">
-                        <div class="slider-label-row">
-                            <span>Precipitation Delta (%)</span>
-                            <span class="slider-val-badge" id="lbl-rain">0%</span>
-                        </div>
-                        <input type="range" min="-30" max="30" value="0" class="app-slider" id="sl-rain" oninput="onScenarioParamChange()">
-                    </div>
-
-                    <div class="slider-row">
-                        <div class="slider-label-row">
-                            <span>Pumping Extraction Delta (%)</span>
-                            <span class="slider-val-badge" id="lbl-pump">-20%</span>
-                        </div>
-                        <input type="range" min="-50" max="50" value="-20" class="app-slider" id="sl-pump" oninput="onScenarioParamChange()">
-                    </div>
-
-                    <div class="slider-row">
-                        <div class="slider-label-row">
-                            <span>Managed Recharge (m³/day)</span>
-                            <span class="slider-val-badge" id="lbl-rech">500 m³</span>
-                        </div>
-                        <input type="range" min="0" max="2000" step="100" value="500" class="app-slider" id="sl-rech" oninput="onScenarioParamChange()">
-                    </div>
-
-                    <div class="slider-row">
-                        <div class="slider-label-row">
-                            <span>Demand Quota Reduction (%)</span>
-                            <span class="slider-val-badge" id="lbl-demand">-15%</span>
-                        </div>
-                        <input type="range" min="-40" max="40" value="-15" class="app-slider" id="sl-demand" oninput="onScenarioParamChange()">
-                    </div>
-                </div>
-
-                <div>
-                    <div style="font-size: 0.75rem; font-weight: 700; color: var(--text-secondary); margin-bottom: 0.4rem;">
-                        SIMULATION ENGINE
-                    </div>
-                    <div style="display: flex; gap: 0.6rem; font-size: 0.75rem;">
-                        <label style="display:flex; align-items:center; gap:0.3rem; cursor:pointer;">
-                            <input type="radio" name="sim-engine" value="physics" checked> USGS MODFLOW 6 (Physics)
-                        </label>
-                        <label style="display:flex; align-items:center; gap:0.3rem; cursor:pointer;">
-                            <input type="radio" name="sim-engine" value="fast"> Fast Water-Balance
-                        </label>
-                    </div>
-                </div>
-
-                <button class="btn-scenario-run" id="btn-run-scen" onclick="executeScenarioLab()">
-                    <i class="fa-solid fa-play"></i> Run Scenario Simulation
-                </button>
-
-                <div style="font-size: 0.72rem; color: var(--text-muted); font-family: var(--font-mono); text-align: center;" id="scen-runtime-msg">
-                    Last execution: 0.484s (Binary Solver)
-                </div>
-            </div>
-        </div>
-    </main>
-
-    <!-- TAB 5: 🧮 RESPONSE OPTIMIZER & ACTIONS -->
-    <main class="tab-content" id="tab-optimizer">
-        <div class="grid-2col">
-            <!-- OR-Tools Resource Allocation -->
-            <div class="panel">
-                <div class="panel-header">
-                    <div class="panel-title"><i class="fa-solid fa-calculator"></i> Google OR-Tools CP-SAT Optimizer</div>
-                    <div class="panel-badge">DISCRETE COMBINATORIAL</div>
-                </div>
-
-                <div class="scenario-control-group">
-                    <div class="slider-row">
-                        <div class="slider-label-row">
-                            <span>Available Budget (INR)</span>
-                            <span class="slider-val-badge" id="lbl-opt-budget">INR 50,00,000</span>
-                        </div>
-                        <input type="range" min="1000000" max="10000000" step="500000" value="5000000" class="app-slider" id="sl-opt-budget" oninput="onOptParamChange()">
-                    </div>
-
-                    <div class="slider-row">
-                        <div class="slider-label-row">
-                            <span>Field Teams Capacity</span>
-                            <span class="slider-val-badge" id="lbl-opt-teams">3 Teams</span>
-                        </div>
-                        <input type="range" min="1" max="6" value="3" class="app-slider" id="sl-opt-teams" oninput="onOptParamChange()">
-                    </div>
-                </div>
-
-                <button class="btn-scenario-run" id="btn-solve-opt" onclick="executeOptimizerPass()">
-                    <i class="fa-solid fa-calculator"></i> Solve Optimal Portfolio
-                </button>
-
-                <div>
-                    <div style="font-size: 0.78rem; font-weight: 700; color: #fff; margin-bottom: 0.5rem;">
-                        OPTIMAL RESPONSE PORTFOLIO
-                    </div>
-                    <div id="optimizer-portfolio-list">
-                        <!-- Populated by JS -->
-                    </div>
-                </div>
-            </div>
-
-            <!-- Social Priority Matrix & QRP Expansion -->
-            <div style="display: flex; flex-direction: column; gap: 1.25rem;">
-                <!-- Social Priority Matrix -->
-                <div class="panel">
-                    <div class="panel-header">
-                        <div class="panel-title"><i class="fa-solid fa-people-roof"></i> Policy-Aware Social Priority Matrix</div>
-                        <div class="panel-badge">8-FACTOR MCDA</div>
-                    </div>
-
-                    <div class="scenario-control-group">
-                        <div class="slider-row">
-                            <div class="slider-label-row">
-                                <span>Hydrological Risk Weight</span>
-                                <span class="slider-val-badge" id="lbl-w-hydro">40%</span>
-                            </div>
-                            <input type="range" min="10" max="60" value="40" class="app-slider" id="sl-w-hydro" oninput="onWeightChange()">
-                        </div>
-
-                        <div class="slider-row">
-                            <div class="slider-label-row">
-                                <span>Population Dependence Weight</span>
-                                <span class="slider-val-badge" id="lbl-w-pop">30%</span>
-                            </div>
-                            <input type="range" min="10" max="60" value="30" class="app-slider" id="sl-w-pop" oninput="onWeightChange()">
-                        </div>
-
-                        <div class="slider-row">
-                            <div class="slider-label-row">
-                                <span>Aquifer Vulnerability Weight</span>
-                                <span class="slider-val-badge" id="lbl-w-vuln">20%</span>
-                            </div>
-                            <input type="range" min="5" max="40" value="20" class="app-slider" id="sl-w-vuln" oninput="onWeightChange()">
-                        </div>
-                    </div>
-
-                    <div id="mcda-ranked-regions-list">
-                        <!-- Populated by JS -->
-                    </div>
-                </div>
-
-                <!-- QRP Monitoring Allocation -->
-                <div class="panel">
-                    <div class="panel-header">
-                        <div class="panel-title"><i class="fa-solid fa-satellite-dish"></i> Smart Monitoring Allocation (QRP)</div>
-                        <div class="panel-badge">NATURE WATER (2025)</div>
-                    </div>
-                    <div style="font-size: 0.75rem; color: var(--text-secondary); line-height: 1.4;">
-                        Maximum marginal information gain candidate well location under existing fixed sensor constraints:
-                    </div>
-                    <div class="action-card" style="margin-top: 0.5rem;">
-                        <div style="display: flex; justify-content: space-between; font-weight: 700; color: #fff;">
-                            <span>Candidate Location:</span>
-                            <span style="color: var(--accent-cyan);" id="qrp-rec-name">CAND-R22-01</span>
-                        </div>
-                        <div class="action-meta">
-                            <span>Info Gain: <strong>74.8%</strong></span>
-                            <span>Distance: <strong>294.5 km</strong></span>
-                            <span>Est. Cost: <strong>INR 5.0L</strong></span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </main>
-
-    <!-- TAB 6: 🧬 TECHNICAL PIPELINE & BENCHMARKS -->
-    <main class="tab-content" id="tab-technical">
-        <div class="grid-2col">
-            <!-- Pipeline Flow -->
-            <div class="panel">
-                <div class="panel-header">
-                    <div class="panel-title"><i class="fa-solid fa-diagram-project"></i> JalNetra Scientific Architecture</div>
-                    <div class="panel-badge">END-TO-END PIPELINE</div>
-                </div>
-
-                <div style="font-size: 0.78rem; color: var(--text-secondary); line-height: 1.6; font-family: var(--font-mono); background: var(--bg-surface); padding: 1rem; border-radius: 6px; border: 1px solid var(--border);">
-                    1. DWLR TELEMETRY (7,300 Real Daily Records)<br>
-                    &nbsp;&nbsp;&nbsp;↓<br>
-                    2. 7-FACTOR DATA TRUST ENGINE (TSOD + GEMS-QC)<br>
-                    &nbsp;&nbsp;&nbsp;↓<br>
-                    3. SPATIAL INCIDENT CLUSTERING (KD-Tree Correlation)<br>
-                    &nbsp;&nbsp;&nbsp;↓<br>
-                    4. SEASONAL RIDGE FORECAST + UNCERTAINTY CONE (P10/P50/P90)<br>
-                    &nbsp;&nbsp;&nbsp;↓<br>
-                    5. MODELED STRESS HORIZON COUNTDOWN<br>
-                    &nbsp;&nbsp;&nbsp;↓<br>
-                    6. USGS MODFLOW 6 FINITE-DIFFERENCE PHYSICS SOLVER (FloPy)<br>
-                    &nbsp;&nbsp;&nbsp;↓<br>
-                    7. GOOGLE OR-TOOLS CP-SAT DISCRETE RESOURCE ALLOCATION<br>
-                    &nbsp;&nbsp;&nbsp;↓<br>
-                    8. WEIGHTED QRP SENSOR NETWORK EXPANSION (Nature Water 2025)<br>
-                    &nbsp;&nbsp;&nbsp;↓<br>
-                    9. 8-FACTOR MCDA POLICY RANKING & EXECUTIVE ACTION
-                </div>
-            </div>
-
-            <!-- Model Benchmark Table -->
-            <div class="panel">
-                <div class="panel-header">
-                    <div class="panel-title"><i class="fa-solid fa-table-list"></i> Model Benchmarks & Scientific Rigor</div>
-                    <div class="panel-badge">CROSS-VALIDATED</div>
-                </div>
-
-                <table class="tech-table">
+            <div style="max-height:480px; overflow-y:auto;">
+                <table class="data-tbl">
                     <thead>
                         <tr>
-                            <th>Model</th>
-                            <th>MAE (m)</th>
-                            <th>RMSE (m)</th>
-                            <th>R² Score</th>
-                            <th>Status</th>
+                            <th onclick="toggleSort('id')">ID</th>
+                            <th onclick="toggleSort('station_id')">Station</th>
+                            <th>Lat / Lon</th>
+                            <th onclick="toggleSort('date')">Date</th>
+                            <th onclick="toggleSort('water_level_m')">Water Level (m)</th>
+                            <th onclick="toggleSort('temperature_c')">Temp (°C)</th>
+                            <th onclick="toggleSort('rainfall_mm')">Rainfall (mm)</th>
+                            <th onclick="toggleSort('ph')">pH</th>
+                            <th>DO (mg/L)</th>
+                            <th>Action</th>
                         </tr>
                     </thead>
-                    <tbody>
-                        <tr>
-                            <td>Persistence Baseline</td>
-                            <td>0.34</td>
-                            <td>0.45</td>
-                            <td>0.81</td>
-                            <td>Baseline</td>
-                        </tr>
-                        <tr style="background: rgba(59, 130, 246, 0.1);">
-                            <td><strong style="color:var(--accent-cyan);">Ridge Seasonal (Ours)</strong></td>
-                            <td><strong>0.18</strong></td>
-                            <td><strong>0.24</strong></td>
-                            <td><strong>0.94</strong></td>
-                            <td><strong style="color:var(--success);">PRODUCTION</strong></td>
-                        </tr>
-                        <tr>
-                            <td>ST-GNN (Experimental)</td>
-                            <td>0.29*</td>
-                            <td>0.38*</td>
-                            <td>0.86*</td>
-                            <td><span style="color:var(--warning);">UNTRAINED CHECKPOINT</span></td>
-                        </tr>
-                    </tbody>
+                    <tbody id="db-explorer-tbody"></tbody>
                 </table>
+            </div>
 
-                <div style="font-size: 0.72rem; color: var(--text-muted); line-height: 1.4; margin-top: 0.5rem;">
-                    *ST-GNN model architecture is verified and executable via PyTorch forward pass, but scientifically labeled EXPERIMENTAL due to lack of a public multi-basin pretrained checkpoint. Ridge Seasonal regression serves as the validated production engine.
+            <!-- Pagination Bar -->
+            <div class="pag-bar">
+                <span id="pag-info">Showing 0 of 0 records</span>
+                <div class="pag-btns">
+                    <button class="btn-sm" onclick="changeDbPage(1)"><i class="fa-solid fa-angles-left"></i></button>
+                    <button class="btn-sm" onclick="changeDbPage(-1)"><i class="fa-solid fa-chevron-left"></i> Prev</button>
+                    <span id="pag-page-num" style="margin:0 0.5rem; align-self:center;">Page 1 of 1</span>
+                    <button class="btn-sm" onclick="changeDbPage(1, true)">Next <i class="fa-solid fa-chevron-right"></i></button>
+                    <button class="btn-sm" id="btn-pag-last" onclick="goToLastDbPage()"><i class="fa-solid fa-angles-right"></i></button>
                 </div>
             </div>
         </div>
-    </main>
 
-    <!-- Slide-over Explainability Drawer -->
-    <div class="drawer-overlay" id="drawer-overlay" onclick="closeDrawer()"></div>
-    <div class="drawer" id="explain-drawer">
-        <div class="drawer-header">
-            <div class="drawer-title"><i class="fa-solid fa-brain"></i> Decision Explainability Chain</div>
-            <button class="close-btn" onclick="closeDrawer()">&times;</button>
-        </div>
-
-        <div class="action-card">
-            <div style="font-weight:700; color:var(--accent-cyan); font-size:0.8rem; margin-bottom:0.3rem;">1. WHY THIS REGION?</div>
-            <div style="font-size:0.75rem; color:var(--text-secondary); line-height:1.4;" id="exp-why">
-                Region 22 exhibits accelerating hydraulic table decline (Theil-Sen slope 1.62 m/year) combined with heavy agricultural population dependence (85/100) and lack of alternative surface reservoir storage.
+        <div class="grid-2">
+            <div class="panel">
+                <div class="panel-hdr"><div class="panel-title"><i class="fa-solid fa-server"></i> SQLite Storage Reality</div><div class="panel-badge">ENGINE METRICS</div></div>
+                <div id="db-stats"><div class="loading">Querying database...</div></div>
             </div>
-        </div>
-
-        <div class="action-card">
-            <div style="font-weight:700; color:var(--accent-cyan); font-size:0.8rem; margin-bottom:0.3rem;">2. WHAT EVIDENCE SUPPORTS IT?</div>
-            <div style="font-size:0.75rem; color:var(--text-secondary); line-height:1.4;" id="exp-evidence">
-                Verified telemetry from 4 DWLR sensors indicates 93.7/100 average data trust with 0 consensus sensor fault flags. The multi-model ensemble confirms statistically significant depletion (Kendall Tau = -0.55, p < 0.001).
-            </div>
-        </div>
-
-        <div class="action-card">
-            <div style="font-weight:700; color:var(--accent-cyan); font-size:0.8rem; margin-bottom:0.3rem;">3. WHAT DOES THE PHYSICS MODEL PREDICT?</div>
-            <div style="font-size:0.75rem; color:var(--text-secondary); line-height:1.4;" id="exp-physics">
-                USGS MODFLOW 6 binary finite-difference solver confirms that a 20% managed pumping reduction produces a net +0.88m head recovery across the unconfined alluvial aquifer cell in 0.48s runtime.
-            </div>
-        </div>
-
-        <div class="action-card">
-            <div style="font-weight:700; color:var(--accent-cyan); font-size:0.8rem; margin-bottom:0.3rem;">4. HOW WERE RESOURCES ALLOCATED?</div>
-            <div style="font-size:0.75rem; color:var(--text-secondary); line-height:1.4;" id="exp-opt">
-                Google OR-Tools CP-SAT discrete solver optimized 3 interventions under the INR 50.0L budget constraint, allocating INR 33.0L with 3 field teams to yield an expected 42.5% regional risk reduction.
+            <div class="panel">
+                <div class="panel-hdr"><div class="panel-title"><i class="fa-solid fa-fingerprint"></i> Transparency & Provenance</div><div class="panel-badge">SYSTEM INTEGRITY</div></div>
+                <div id="provenance-panel"><div class="loading">Loading...</div></div>
             </div>
         </div>
     </div>
 
-    <!-- App Footer -->
+    <!-- ===== TAB 3: BASIN MAP ===== -->
+    <div class="tab-content" id="tab-map">
+        <div class="grid-3">
+            <div class="panel" style="padding:0; overflow:hidden;">
+                <div class="map-wrap tall"><div id="gis-map"></div></div>
+            </div>
+            <div class="panel" id="inspector-panel">
+                <div class="panel-hdr"><div class="panel-title"><i class="fa-solid fa-circle-info"></i> Station Inspector</div><div class="panel-badge" id="insp-id">—</div></div>
+                <div id="inspector-content"><div class="loading">Click a station on the map</div></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== TAB 4: FORECAST & HORIZON ===== -->
+    <div class="tab-content" id="tab-forecast">
+        <div class="grid-3">
+            <div class="panel">
+                <div class="panel-hdr">
+                    <div class="panel-title"><i class="fa-solid fa-chart-area"></i> Hydrograph & 90-Day Forecast</div>
+                    <div style="display:flex; gap:0.5rem; align-items:center;">
+                        <select class="nav-btn" id="fc-station" onchange="loadForecast()" style="border:1px solid var(--border); border-radius:4px; padding:0.25rem 0.4rem;"></select>
+                    </div>
+                </div>
+                <div style="height:400px;"><canvas id="main-chart"></canvas></div>
+                <div style="display:flex; gap:1.5rem; font-size:0.68rem; color:var(--text-3); font-family:var(--mono); padding-top:0.4rem; border-top:1px solid var(--border);">
+                    <span>● BLUE = Observed</span><span>● CYAN = Ridge P50</span><span>░ SHADED = P10–P90</span><span>─ RED = Threshold</span>
+                </div>
+            </div>
+            <div>
+                <div class="panel" style="text-align:center; margin-bottom:1rem;">
+                    <div class="panel-hdr"><div class="panel-title"><i class="fa-solid fa-hourglass-half"></i> Stress Horizon</div><div class="panel-badge">MODELED</div></div>
+                    <div style="margin:0.8rem 0;"><div id="fc-horizon-val" style="font-size:2.8rem; font-weight:800; font-family:var(--mono); color:var(--amber);">—</div><div style="font-size:0.72rem; color:var(--text-3); text-transform:uppercase; font-weight:600;">Days to Critical Threshold</div></div>
+                    <div id="fc-horizon-detail" style="font-size:0.7rem; color:var(--text-3); text-align:left; background:var(--bg-surface); padding:0.6rem; border-radius:5px; border:1px solid var(--border);"></div>
+                </div>
+                <div class="panel">
+                    <div class="panel-hdr"><div class="panel-title"><i class="fa-solid fa-square-poll-vertical"></i> Forecast Metrics</div><div class="panel-badge" id="fc-model-badge">—</div></div>
+                    <div id="fc-metrics"><div class="loading">Select a station...</div></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== TAB 5: SCENARIO LAB ===== -->
+    <div class="tab-content" id="tab-scenario">
+        <div class="grid-3">
+            <div class="panel">
+                <div class="panel-hdr"><div class="panel-title"><i class="fa-solid fa-chart-line"></i> System Response</div><div class="panel-badge" id="scen-engine-badge">—</div></div>
+                <div style="height:360px;"><canvas id="scen-chart"></canvas></div>
+                <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:0.6rem; margin-top:0.5rem;" id="scen-result-cards">
+                    <div class="act-card"><div style="font-size:0.65rem; color:var(--text-3);">BASELINE</div><div id="scen-base" style="font-size:1.2rem; font-weight:800; font-family:var(--mono);">—</div></div>
+                    <div class="act-card"><div style="font-size:0.65rem; color:var(--text-3);">SCENARIO</div><div id="scen-result" style="font-size:1.2rem; font-weight:800; font-family:var(--mono); color:var(--green);">—</div></div>
+                    <div class="act-card"><div style="font-size:0.65rem; color:var(--text-3);">DELTA (Δh)</div><div id="scen-delta" style="font-size:1.2rem; font-weight:800; font-family:var(--mono); color:var(--cyan);">—</div></div>
+                </div>
+            </div>
+            <div class="panel">
+                <div class="panel-hdr"><div class="panel-title"><i class="fa-solid fa-sliders"></i> Parameters</div><div class="panel-badge">INTERACTIVE</div></div>
+                <div class="slider-grp"><div class="row"><span>Precipitation Δ (%)</span><span class="v" id="lbl-rain">0%</span></div><input type="range" min="-30" max="30" value="0" id="sl-rain" oninput="onScenParam()"></div>
+                <div class="slider-grp"><div class="row"><span>Pumping Extraction Δ (%)</span><span class="v" id="lbl-pump">-20%</span></div><input type="range" min="-50" max="50" value="-20" id="sl-pump" oninput="onScenParam()"></div>
+                <div class="slider-grp"><div class="row"><span>Managed Recharge (m³/day)</span><span class="v" id="lbl-rech">500</span></div><input type="range" min="0" max="2000" step="100" value="500" id="sl-rech" oninput="onScenParam()"></div>
+                <div class="slider-grp"><div class="row"><span>Demand Quota Δ (%)</span><span class="v" id="lbl-dem">-15%</span></div><input type="range" min="-40" max="40" value="-15" id="sl-dem" oninput="onScenParam()"></div>
+                <div style="font-size:0.72rem; color:var(--text-2); margin-bottom:0.4rem; font-weight:600;">ENGINE</div>
+                <div style="display:flex; gap:0.8rem; font-size:0.72rem; margin-bottom:0.5rem;">
+                    <label style="cursor:pointer;"><input type="radio" name="sim-eng" value="physics" checked> MODFLOW 6</label>
+                    <label style="cursor:pointer;"><input type="radio" name="sim-eng" value="fast"> Analytical</label>
+                </div>
+                <button class="btn-run" id="btn-scen" onclick="runScenario()"><i class="fa-solid fa-play"></i> Run Scenario</button>
+                <div id="scen-runtime" style="font-size:0.68rem; color:var(--text-3); font-family:var(--mono); text-align:center;">—</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== TAB 6: OPTIMIZER & PRIORITY ===== -->
+    <div class="tab-content" id="tab-optimizer">
+        <div class="grid-2">
+            <div class="panel">
+                <div class="panel-hdr"><div class="panel-title"><i class="fa-solid fa-calculator"></i> OR-Tools CP-SAT Optimizer</div><div class="panel-badge">DISCRETE SOLVER</div></div>
+                <div class="slider-grp"><div class="row"><span>Budget (INR)</span><span class="v" id="lbl-bgt">₹50.0L</span></div><input type="range" min="1000000" max="10000000" step="500000" value="5000000" id="sl-bgt" oninput="onOptParam()"></div>
+                <div class="slider-grp"><div class="row"><span>Field Teams</span><span class="v" id="lbl-teams">3</span></div><input type="range" min="1" max="6" value="3" id="sl-teams" oninput="onOptParam()"></div>
+                <button class="btn-run" id="btn-opt" onclick="runOptimizer()"><i class="fa-solid fa-calculator"></i> Solve Portfolio</button>
+                <div id="opt-summary" style="font-size:0.72rem; color:var(--text-3); font-family:var(--mono); text-align:center; margin-bottom:0.5rem;">—</div>
+                <div id="opt-portfolio"><div class="loading">Click Solve to execute optimizer</div></div>
+            </div>
+            <div>
+                <div class="panel" style="margin-bottom:1rem;">
+                    <div class="panel-hdr"><div class="panel-title"><i class="fa-solid fa-people-roof"></i> MCDA Social Priority</div><div class="panel-badge">8-FACTOR</div></div>
+                    <div class="slider-grp"><div class="row"><span>Hydro Risk Weight</span><span class="v" id="lbl-wh">20%</span></div><input type="range" min="5" max="40" value="20" id="sl-wh" oninput="onWeightChange()"></div>
+                    <div class="slider-grp"><div class="row"><span>Population Weight</span><span class="v" id="lbl-wp">15%</span></div><input type="range" min="5" max="40" value="15" id="sl-wp" oninput="onWeightChange()"></div>
+                    <div class="slider-grp"><div class="row"><span>Vulnerability Weight</span><span class="v" id="lbl-wv">10%</span></div><input type="range" min="5" max="30" value="10" id="sl-wv" oninput="onWeightChange()"></div>
+                    <button class="btn-run" onclick="loadPriority()"><i class="fa-solid fa-ranking-star"></i> Recalculate Rankings</button>
+                    <div id="mcda-list"><div class="loading">Click to load MCDA rankings...</div></div>
+                </div>
+                <div class="panel">
+                    <div class="panel-hdr"><div class="panel-title"><i class="fa-solid fa-satellite-dish"></i> QRP Monitoring Expansion</div><div class="panel-badge">NATURE WATER 2025</div></div>
+                    <div id="qrp-list"><div class="loading">Loading QRP recommendations...</div></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== TAB 7: TECHNICAL ===== -->
+    <div class="tab-content" id="tab-technical">
+        <div class="grid-2">
+            <div class="panel">
+                <div class="panel-hdr"><div class="panel-title"><i class="fa-solid fa-diagram-project"></i> Pipeline Status</div><div class="panel-badge">LIVE ENGINE STATUS</div></div>
+                <div id="pipeline-status"><div class="loading">Loading pipeline...</div></div>
+            </div>
+            <div class="panel">
+                <div class="panel-hdr"><div class="panel-title"><i class="fa-solid fa-table-list"></i> Model Benchmarks</div><div class="panel-badge" id="bench-badge">—</div></div>
+                <div id="bench-table"><div class="loading">Loading benchmarks...</div></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Drawer -->
+    <div class="drawer-bg" id="drawer-bg" onclick="closeDrawer()"></div>
+    <div class="drawer" id="drawer">
+        <div class="dhdr"><h3><i class="fa-solid fa-brain"></i> Decision Evidence Chain</h3><button class="close" onclick="closeDrawer()">&times;</button></div>
+        <div id="drawer-content"><div class="loading">Run analyses to populate evidence...</div></div>
+    </div>
+
+    <!-- Telemetry Injection Modal -->
+    <div class="modal-bg" id="inject-modal-bg">
+        <div class="modal">
+            <h3><span><i class="fa-solid fa-bolt" style="color:var(--amber);"></i> Live Telemetry & Stress Injector</span><button class="close" onclick="closeInjectModal()">&times;</button></h3>
+            <div style="font-size:0.7rem; color:var(--text-3); margin-bottom:0.8rem;">Inject a custom telemetry reading or artificial drought/anomaly spike directly into SQLite database to watch the 7-Factor Trust & Incident engines respond live!</div>
+            
+            <div class="form-grid">
+                <div class="form-grp"><label>Station ID</label><select id="inj-station"></select></div>
+                <div class="form-grp"><label>Date</label><input type="date" id="inj-date"></div>
+                <div class="form-grp"><label>Water Level (m)</label><input type="number" step="0.01" id="inj-level" value="18.5"></div>
+                <div class="form-grp"><label>Temperature (°C)</label><input type="number" step="0.1" id="inj-temp" value="28.5"></div>
+                <div class="form-grp"><label>Rainfall (mm)</label><input type="number" step="0.1" id="inj-rain" value="0.0"></div>
+                <div class="form-grp"><label>pH</label><input type="number" step="0.01" id="inj-ph" value="7.2"></div>
+                <div class="form-grp" style="grid-column: span 2;"><label>Preset Scenario Spikes</label>
+                    <select id="inj-preset" onchange="applyInjectPreset()">
+                        <option value="custom">-- Custom Injection --</option>
+                        <option value="drought_spike">⚠️ Severe Drought Spike (Water Level = 19.8m)</option>
+                        <option value="sensor_flatline">⚠️ Stuck Sensor / Flatline (Water Level = 0.0m)</option>
+                        <option value="recharge_event">🌧️ Heavy Recharge Event (Water Level = 3.2m)</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div style="display:flex; justify-content:flex-end; gap:0.5rem;">
+                <button class="btn-sm" onclick="closeInjectModal()">Cancel</button>
+                <button class="btn-sm primary" onclick="submitTelemetryInject()"><i class="fa-solid fa-paper-plane"></i> Inject into SQLite DB</button>
+            </div>
+        </div>
+    </div>
+
     <footer>
-        <div><i class="fa-solid fa-shield-halved"></i> DATA_STATUS: DEMONSTRATION &bull; COORDINATE_STATUS: DEMONSTRATION</div>
-        <div>ENGINES: USGS MODFLOW 6 (v6.7.0) &bull; GOOGLE OR-TOOLS CP-SAT &bull; TSOD &bull; QRP</div>
+        <div><i class="fa-solid fa-shield-halved"></i> DATA_STATUS: VERIFIED SQLITE DATABASE &bull; COORDINATE_STATUS: DEMONSTRATION</div>
+        <div id="footer-engines">—</div>
     </footer>
 
-    <!-- App JavaScript Logic -->
-    <script>
-        // State
-        let allWaterData = [];
-        let stationsList = [];
-        let currentReplayDay = 364;
-        let isPlaying = false;
-        let playInterval = null;
-        let cmdMap = null;
-        let gisMap = null;
-        let mainChart = null;
-        let miniChart = null;
-        let scenChart = null;
+<script>
+// ==================== GLOBAL STATE ====================
+const S = {
+    waterData: [], stations: [], overview: null, incidents: null,
+    priority: null, optimizer: null, monitoring: null, forecast: null,
+    selectedStation: 'DWLR-001', replayDay: 364, playing: false, playInterval: null,
+    dates: [], drawerEvidence: {}, dbPage: 1, dbTotalPages: 1, dbPageSize: 50
+};
+// Build date lookup
+const bd = new Date('2025-08-20');
+for (let i = 0; i < 365; i++) { const d = new Date(bd); d.setDate(bd.getDate() + i); S.dates.push(d.toISOString().slice(0,10)); }
 
-        const DATES_LOOKUP = [];
-        const baseDate = new Date('2025-08-20');
-        for (let i = 0; i < 365; i++) {
-            const d = new Date(baseDate);
-            d.setDate(baseDate.getDate() + i);
-            DATES_LOOKUP.push(d.toISOString().slice(0, 10));
+let cmdMap=null, gisMap=null, mainChart=null, scenChart=null;
+let cmdMarkers=[], gisMarkers=[];
+let debounceTimer = null;
+
+function curDate() { return S.dates[S.replayDay] || S.dates[364]; }
+function debounce(func, timeout = 300) { return (...args) => { clearTimeout(debounceTimer); debounceTimer = setTimeout(() => { func.apply(this, args); }, timeout); }; }
+
+// ==================== INIT ====================
+document.addEventListener('DOMContentLoaded', async () => {
+    initMaps();
+    await Promise.all([fetchWaterData(), fetchOverview()]);
+    initCharts();
+    populateStationSelect();
+    updateGlobalUI();
+    loadIncidents();
+    loadPriority();
+    loadMonitoring();
+    loadForecast();
+    loadDbExplorer();
+});
+
+function switchTab(id) {
+    document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
+    const t = document.getElementById('tab-' + id);
+    if (t) t.classList.add('active');
+    const btns = document.querySelectorAll('.nav-btn');
+    btns.forEach(b => { if (b.textContent.toLowerCase().includes(id)) b.classList.add('active'); });
+    if (id === 'map' && gisMap) setTimeout(() => gisMap.invalidateSize(), 150);
+    if (id === 'command' && cmdMap) setTimeout(() => cmdMap.invalidateSize(), 150);
+}
+
+// ==================== DATA FETCHING ====================
+async function fetchWaterData() {
+    try {
+        const r = await fetch('/api/water-quality/');
+        S.waterData = await r.json();
+        const m = new Map();
+        S.waterData.forEach(r => { if (!m.has(r.station_id)) m.set(r.station_id, {id:r.station_id, lat:r.lat, lon:r.lon}); });
+        S.stations = Array.from(m.values());
+    } catch(e) { console.error('Failed to fetch water data:', e); }
+}
+
+async function fetchOverview() {
+    try {
+        const r = await fetch('/api/system/overview/');
+        S.overview = await r.json();
+    } catch(e) { console.error('Failed to fetch overview:', e); }
+}
+
+// ==================== MAPS ====================
+function initMaps() {
+    const tile = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+    const attr = '&copy; OpenStreetMap';
+    cmdMap = L.map('command-map').setView([25,80.5], 5);
+    L.tileLayer(tile, {maxZoom:12, attribution:attr}).addTo(cmdMap);
+    gisMap = L.map('gis-map').setView([25,80.5], 5);
+    L.tileLayer(tile, {maxZoom:12, attribution:attr}).addTo(gisMap);
+}
+
+function renderMarkers() {
+    cmdMarkers.forEach(m => cmdMap.removeLayer(m)); cmdMarkers = [];
+    gisMarkers.forEach(m => gisMap.removeLayer(m)); gisMarkers = [];
+    if (!S.stations.length) return;
+    const lats = S.stations.map(s=>s.lat), lons = S.stations.map(s=>s.lon);
+    const bounds = [[Math.min(...lats)-0.5, Math.min(...lons)-0.5],[Math.max(...lats)+0.5, Math.max(...lons)+0.5]];
+    cmdMap.fitBounds(bounds); gisMap.fitBounds(bounds);
+
+    S.stations.forEach(st => {
+        const stData = S.waterData.filter(r => r.station_id === st.id);
+        const recent = stData.slice(-14);
+        let color = '#10b981';
+        if (recent.length >= 7) {
+            const first = recent[0].water_level_m, last = recent[recent.length-1].water_level_m;
+            const diff = last - first;
+            if (diff > 0.5) color = '#ef4444';
+            else if (diff > 0.2) color = '#f59e0b';
         }
 
-        // Initialize App
-        document.addEventListener('DOMContentLoaded', async () => {
-            initMaps();
-            await fetchInitialData();
-            initCharts();
-            updateAllViews();
+        const m1 = L.circleMarker([st.lat, st.lon], {radius:7, fillColor:color, color:'#fff', weight:1.5, fillOpacity:0.85}).addTo(cmdMap);
+        m1.bindPopup(`<strong>${st.id}</strong><br>Lat: ${st.lat.toFixed(3)}, Lon: ${st.lon.toFixed(3)}`);
+        cmdMarkers.push(m1);
+
+        const m2 = L.circleMarker([st.lat, st.lon], {radius:8, fillColor:color, color:'#38bdf8', weight:2, fillOpacity:0.85}).addTo(gisMap);
+        m2.on('click', () => inspectStation(st.id));
+        m2.bindPopup(`<strong>${st.id}</strong><br>Click to inspect`);
+        gisMarkers.push(m2);
+    });
+}
+
+// ==================== CHARTS ====================
+function initCharts() {
+    const cM = document.getElementById('main-chart');
+    if (cM) {
+        mainChart = new Chart(cM.getContext('2d'), {
+            type:'line', data:{labels:[], datasets:[
+                {label:'Observed', data:[], borderColor:'#3b82f6', borderWidth:2, pointRadius:0, tension:0.2},
+                {label:'Ridge P50', data:[], borderColor:'#06b6d4', borderWidth:2.5, borderDash:[5,5], pointRadius:0, tension:0.2},
+                {label:'P90 Upper', data:[], borderColor:'transparent', backgroundColor:'rgba(6,182,212,0.12)', fill:'+1', pointRadius:0},
+                {label:'P10 Lower', data:[], borderColor:'transparent', fill:false, pointRadius:0},
+                {label:'Threshold (15m)', data:[], borderColor:'#ef4444', borderWidth:1.5, pointRadius:0, borderDash:[3,3]}
+            ]},
+            options:{responsive:true, maintainAspectRatio:false, plugins:{legend:{labels:{color:'#94a3b8',font:{size:10}}}}, scales:{x:{grid:{color:'#1e293b'},ticks:{color:'#94a3b8',maxTicksLimit:12}},y:{grid:{color:'#1e293b'},ticks:{color:'#94a3b8'}, reverse:true}}}
         });
+    }
+    const cS = document.getElementById('scen-chart');
+    if (cS) {
+        scenChart = new Chart(cS.getContext('2d'), {
+            type:'line', data:{labels:[], datasets:[
+                {label:'Baseline', data:[], borderColor:'#94a3b8', borderWidth:2, borderDash:[4,4], pointRadius:0},
+                {label:'Scenario', data:[], borderColor:'#10b981', backgroundColor:'rgba(16,185,129,0.1)', fill:true, borderWidth:3, pointRadius:0}
+            ]},
+            options:{responsive:true, maintainAspectRatio:false, plugins:{legend:{labels:{color:'#94a3b8',font:{size:10}}}}, scales:{x:{grid:{color:'#1e293b'},ticks:{color:'#94a3b8'}},y:{grid:{color:'#1e293b'},ticks:{color:'#94a3b8'},reverse:true}}}
+        });
+    }
+}
 
-        function switchTab(tabId) {
-            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
-            document.querySelectorAll('.nav-tab-btn').forEach(el => el.classList.remove('active'));
-            
-            const target = document.getElementById(`tab-${tabId}`);
-            if (target) target.classList.add('active');
-            
-            // Mark button active
-            const btn = Array.from(document.querySelectorAll('.nav-tab-btn')).find(b => b.innerText.toLowerCase().includes(tabId));
-            if (btn) btn.classList.add('active');
+function populateStationSelect() {
+    const sel = document.getElementById('fc-station');
+    if (sel) sel.innerHTML = S.stations.map(s => `<option value="${s.id}">${s.id}</option>`).join('');
+    const injSel = document.getElementById('inj-station');
+    if (injSel) injSel.innerHTML = S.stations.map(s => `<option value="${s.id}">${s.id}</option>`).join('');
+    const filterSel = document.getElementById('db-filter-station');
+    if (filterSel) filterSel.innerHTML = `<option value="ALL">All Stations (${S.stations.length})</option>` + S.stations.map(s => `<option value="${s.id}">${s.id}</option>`).join('');
+}
 
-            if (tabId === 'map' && gisMap) {
-                setTimeout(() => gisMap.invalidateSize(), 150);
-            }
-            if (tabId === 'command' && cmdMap) {
-                setTimeout(() => cmdMap.invalidateSize(), 150);
-            }
+// ==================== GLOBAL UI UPDATE ====================
+function updateGlobalUI() {
+    const d = curDate();
+    document.getElementById('g-replay-date').textContent = d;
+    document.getElementById('g-replay-day').textContent = S.replayDay + 1;
+    document.getElementById('replay-slider').value = S.replayDay;
+
+    if (S.overview) {
+        document.getElementById('g-data-mode').textContent = S.overview.data_mode || 'DEMONSTRATION';
+        renderKPIs(); renderEngineHealth(); renderDataTab(); renderPipelineStatus();
+        const engNames = Object.entries(S.overview.engines||{}).filter(([k,v])=>v.status==='OPERATIONAL').map(([k])=>k.toUpperCase().replace(/_/g,' '));
+        document.getElementById('footer-engines').textContent = engNames.join(' • ');
+    }
+    renderMarkers();
+}
+
+// ==================== KPIs (ALL FROM API) ====================
+function renderKPIs() {
+    const o = S.overview; if (!o) return;
+    const db = o.database || {};
+    const h = o.system_health || {};
+    const incCount = S.incidents ? S.incidents.length : '...';
+    const highRisk = S.priority && S.priority.regions ? S.priority.regions.filter(r => r.priority_score >= 50).length : '...';
+    const actCount = S.optimizer && S.optimizer.selected_interventions ? S.optimizer.selected_interventions.length : '...';
+    const avgTrust = S.priority && S.priority.regions ? (S.priority.regions.reduce((a,r)=>a+r.data_trust_score,0)/S.priority.regions.length).toFixed(1) : '...';
+
+    document.getElementById('kpi-grid').innerHTML = `
+        <div class="panel kpi green"><div class="val">${h.overall_pct || '—'}%</div><div class="lbl">System Health</div><div class="detail">Computed from ${Object.keys(h.components||{}).length} factors</div></div>
+        <div class="panel kpi cyan"><div class="val">${db.total_records || '—'}</div><div class="lbl">SQLite Records</div><div class="detail">${db.station_count||0} stations × ${db.date_span_days||0} days</div></div>
+        <div class="panel kpi"><div class="val">${db.station_count || '—'}</div><div class="lbl">Active DWLR Wells</div><div class="detail">${db.coverage_pct||0}% coverage</div></div>
+        <div class="panel kpi red"><div class="val">${incCount}</div><div class="lbl">Active Incidents</div><div class="detail">Spatiotemporal clusters</div></div>
+        <div class="panel kpi amber"><div class="val">${highRisk}</div><div class="lbl">High-Risk Zones</div><div class="detail">MCDA score ≥ 50</div></div>
+        <div class="panel kpi"><div class="val">${actCount}</div><div class="lbl">Optimal Actions</div><div class="detail">OR-Tools portfolio</div></div>
+        <div class="panel kpi cyan"><div class="val">${avgTrust}</div><div class="lbl">Avg Trust Score</div><div class="detail">7-factor composite</div></div>
+    `;
+    document.getElementById('cmd-map-badge').textContent = `${db.station_count||0} STATIONS • EPSG:4326`;
+}
+
+// ==================== ENGINE HEALTH ====================
+function renderEngineHealth() {
+    const engines = S.overview?.engines || {};
+    const el = document.getElementById('engine-health-list');
+    el.innerHTML = Object.entries(engines).map(([k,v]) => `
+        <div class="eng-row">
+            <span><span class="eng-dot ${v.status==='OPERATIONAL'?'op':v.status==='DEGRADED'?'deg':'off'}"></span>${k.replace(/_/g,' ').toUpperCase()}</span>
+            <span style="font-size:0.68rem; color:var(--text-3); font-family:var(--mono);">${v.detail}</span>
+        </div>
+    `).join('');
+}
+
+// ==================== INCIDENTS (FROM BACKEND) ====================
+async function loadIncidents() {
+    try {
+        const r = await fetch('/api/jalnetra/incidents/?as_of=' + curDate());
+        S.incidents = await r.json();
+        renderIncidents();
+        renderKPIs();
+    } catch(e) { document.getElementById('incident-list').innerHTML = '<div class="err">Failed to load incidents</div>'; }
+}
+
+function renderIncidents() {
+    const el = document.getElementById('incident-list');
+    const badge = document.getElementById('inc-badge');
+    if (!S.incidents || S.incidents.length === 0) {
+        el.innerHTML = '<div style="font-size:0.74rem; color:var(--text-3); padding:0.5rem;">No active incidents detected.</div>';
+        badge.textContent = '0 ACTIVE';
+        return;
+    }
+    badge.textContent = `${S.incidents.length} ACTIVE`;
+    el.innerHTML = S.incidents.map(inc => `
+        <div class="inc-card" onclick="showIncidentEvidence('${inc.incident_id}')">
+            <div class="hdr"><span class="name">${inc.incident_id}</span><span class="sev sev-${inc.severity}">${inc.severity}</span></div>
+            <div class="body">${inc.explanation || `${inc.station_count} stations, ${inc.persistence_days}d persistence, ${Math.round(inc.confidence*100)}% confidence`}</div>
+            <div style="font-size:0.62rem; color:var(--text-3); margin-top:0.2rem; font-family:var(--mono);">Stations: ${(inc.affected_stations||[]).join(', ')}</div>
+        </div>
+    `).join('');
+    S.drawerEvidence.incidents = S.incidents;
+}
+
+// ==================== PRIORITY / ACTIONS (FROM BACKEND) ====================
+async function loadPriority() {
+    try {
+        const wh = parseInt(document.getElementById('sl-wh')?.value || 20);
+        const wp = parseInt(document.getElementById('sl-wp')?.value || 15);
+        const wv = parseInt(document.getElementById('sl-wv')?.value || 10);
+        const total = wh + wp + wv;
+        const remaining = 100 - total;
+        const weights = {
+            groundwater_stress: wh/100, depletion_rate: remaining*0.3/100, forecast_risk: remaining*0.3/100,
+            forecast_uncertainty: remaining*0.15/100, population_dependence: wp/100, vulnerability: wv/100,
+            intervention_feasibility: remaining*0.1/100, data_trust: remaining*0.15/100
+        };
+        const r = await fetch('/api/jalnetra/priority/', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({weights, as_of:curDate()})});
+        S.priority = await r.json();
+        renderActionQueue(); renderMCDA();
+        renderKPIs();
+    } catch(e) {
+        console.error('Priority load failed:', e);
+        document.getElementById('action-queue').innerHTML = '<div class="err">Failed to load priorities</div>';
+    }
+}
+
+function renderActionQueue() {
+    const el = document.getElementById('action-queue');
+    if (!S.priority || !S.priority.regions || S.priority.regions.length === 0) {
+        el.innerHTML = '<div style="font-size:0.74rem; color:var(--text-3);">No priority data available.</div>';
+        return;
+    }
+    el.innerHTML = S.priority.regions.slice(0,4).map((r, i) => `
+        <div class="act-card">
+            <div class="top"><span>${i+1}. ${r.region_name}</span><span style="color:var(--amber); font-family:var(--mono);">${r.priority_score}/100</span></div>
+            <div class="desc">${(r.why_priority||[]).join('. ')}</div>
+            <div class="meta"><span>Trust: ${r.data_trust_score}</span><span>Stations: ${r.station_count}</span><span>${r.classification}</span></div>
+        </div>
+    `).join('');
+    S.drawerEvidence.priority = S.priority;
+}
+
+function renderMCDA() {
+    const el = document.getElementById('mcda-list');
+    if (!S.priority || !S.priority.regions) { el.innerHTML = '<div class="loading">No data</div>'; return; }
+    el.innerHTML = S.priority.regions.map((r, i) => `
+        <div class="act-card" style="margin-top:0.4rem;">
+            <div class="top"><span>${r.rank||i+1}. ${r.region_id} — ${r.region_name}</span><span style="color:var(--amber); font-family:var(--mono); font-size:1.1rem;">${r.priority_score}</span></div>
+            <div style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-top:0.3rem;">
+                ${(r.drivers||[]).slice(0,4).map(d => `<span style="font-size:0.6rem; font-family:var(--mono); color:var(--text-3); background:var(--bg-surface); padding:0.1rem 0.3rem; border-radius:3px;">${d.factor}: ${d.score}/100 (w=${d.weight})</span>`).join('')}
+            </div>
+            <div class="meta"><span>Confidence: ${r.evidence_confidence}</span><span>Aquifer: ${r.primary_aquifer}</span><span>${r.classification}</span></div>
+        </div>
+    `).join('');
+}
+
+// ==================== MONITORING / QRP (FROM BACKEND) ====================
+async function loadMonitoring() {
+    try {
+        const r = await fetch('/api/jalnetra/monitoring/priority/?as_of=' + curDate());
+        S.monitoring = await r.json();
+        renderQRP();
+    } catch(e) { document.getElementById('qrp-list').innerHTML = '<div class="err">Failed to load QRP</div>'; }
+}
+
+function renderQRP() {
+    const el = document.getElementById('qrp-list');
+    if (!S.monitoring || !S.monitoring.recommendations || S.monitoring.recommendations.length === 0) {
+        el.innerHTML = '<div style="font-size:0.74rem; color:var(--text-3);">No QRP recommendations available.</div>';
+        return;
+    }
+    el.innerHTML = S.monitoring.recommendations.map(r => `
+        <div class="act-card" style="margin-top:0.4rem;">
+            <div class="top"><span>#${r.rank} ${r.location_id}</span><span style="color:var(--cyan); font-family:var(--mono);">Priority: ${r.priority_score}</span></div>
+            <div class="desc">${r.name} — ${r.region_id}</div>
+            <div class="meta">
+                <span>Info Gain: ${r.information_gain}/100</span>
+                <span>Risk: ${r.risk_score}/100</span>
+                <span>Dist: ${r.distance_km}km</span>
+                <span>Cost: ₹${(r.estimated_cost/100000).toFixed(1)}L</span>
+            </div>
+            <div style="font-size:0.62rem; color:var(--text-3); margin-top:0.15rem;">${(r.why_selected||[]).join(' | ')}</div>
+        </div>
+    `).join('');
+    S.drawerEvidence.monitoring = S.monitoring;
+}
+
+// ==================== DATA OBSERVATORY & SQLITE EXPLORER ====================
+function renderDataTab() {
+    if (!S.overview) return;
+    const db = S.overview.database || {};
+    const prov = S.overview.provenance || {};
+    document.getElementById('db-stats').innerHTML = `
+        <div class="prov-item"><span class="k">Total Observations</span><span class="v">${db.total_records}</span></div>
+        <div class="prov-item"><span class="k">Active Stations</span><span class="v">${db.station_count}</span></div>
+        <div class="prov-item"><span class="k">Date Range</span><span class="v">${db.date_range?.start} → ${db.date_range?.end}</span></div>
+        <div class="prov-item"><span class="k">Date Span</span><span class="v">${db.date_span_days} days</span></div>
+        <div class="prov-item"><span class="k">Temporal Resolution</span><span class="v">${db.temporal_resolution}</span></div>
+        <div class="prov-item"><span class="k">Avg Water Level</span><span class="v">${db.average_water_level_m} m</span></div>
+        <div class="prov-item"><span class="k">Coverage</span><span class="v">${db.coverage_pct}%</span></div>
+        <div class="prov-item"><span class="k">Database Engine</span><span class="v">${db.engine}</span></div>
+        <div class="prov-item"><span class="k">Replay Date</span><span class="v">${curDate()}</span></div>
+        <div class="prov-item"><span class="k">Replay Day</span><span class="v">${S.replayDay+1} / 365</span></div>
+    `;
+    document.getElementById('provenance-panel').innerHTML = `
+        <div class="prov-item"><span class="k">Data Mode</span><span class="v">${S.overview.data_mode}</span></div>
+        <div class="prov-item"><span class="k">Source</span><span class="v" style="font-size:0.58rem; max-width:280px;">${prov.source}</span></div>
+        <div class="prov-item"><span class="k">Generation</span><span class="v" style="font-size:0.58rem;">${prov.generation_method}</span></div>
+        <div class="prov-item"><span class="k">Coordinates</span><span class="v">${prov.coordinate_status}</span></div>
+    `;
+}
+
+async function loadDbExplorer() {
+    const search = document.getElementById('db-search')?.value || '';
+    const station = document.getElementById('db-filter-station')?.value || 'ALL';
+    const startDate = document.getElementById('db-start-date')?.value || '';
+    const endDate = document.getElementById('db-end-date')?.value || '';
+    const minLevel = document.getElementById('db-min-level')?.value || '';
+    const maxLevel = document.getElementById('db-max-level')?.value || '';
+    const sort = document.getElementById('db-sort')?.value || '-date';
+    const pageSize = parseInt(document.getElementById('db-page-size')?.value || 50);
+    S.dbPageSize = pageSize;
+
+    let url = `/api/data/explorer/?page=${S.dbPage}&page_size=${pageSize}&ordering=${sort}`;
+    if (search) url += `&search=${encodeURIComponent(search)}`;
+    if (station && station !== 'ALL') url += `&station_id=${station}`;
+    if (startDate) url += `&start_date=${startDate}`;
+    if (endDate) url += `&end_date=${endDate}`;
+    if (minLevel) url += `&min_level=${minLevel}`;
+    if (maxLevel) url += `&max_level=${maxLevel}`;
+
+    try {
+        const r = await fetch(url);
+        const d = await r.json();
+        S.dbTotalPages = d.total_pages || 1;
+        S.dbPage = d.page || 1;
+
+        // Render Pagination Info
+        const startNum = d.matching_records > 0 ? (d.page - 1) * d.page_size + 1 : 0;
+        const endNum = Math.min(d.matching_records, d.page * d.page_size);
+        document.getElementById('pag-info').textContent = `Showing ${startNum} - ${endNum} of ${d.matching_records.toLocaleString()} matching SQLite records (Total: ${d.total_records.toLocaleString()})`;
+        document.getElementById('pag-page-num').textContent = `Page ${d.page} of ${d.total_pages}`;
+
+        // Render Table Body
+        const tbody = document.getElementById('db-explorer-tbody');
+        if (!d.records || d.records.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="10" style="text-align:center; padding:1.5rem; color:var(--text-3);">No matching SQLite records found. Try clearing filters.</td></tr>';
+            return;
         }
 
-        function initMaps() {
-            const indiaCenter = [25.0, 80.5];
-            const zoomLevel = 6;
+        tbody.innerHTML = d.records.map(r => `
+            <tr>
+                <td style="color:var(--text-3); font-size:0.65rem;">#${r.id}</td>
+                <td style="color:var(--cyan); font-weight:700; cursor:pointer;" onclick="inspectStation('${r.station_id}'); switchTab('map');">${r.station_id}</td>
+                <td style="font-size:0.64rem; color:var(--text-3);">${r.lat.toFixed(2)}, ${r.lon.toFixed(2)}</td>
+                <td>${r.date}</td>
+                <td style="color:${r.water_level_m > 15 ? 'var(--red)' : r.water_level_m > 11 ? 'var(--amber)' : 'var(--text-1)'}; font-weight:700;">${r.water_level_m.toFixed(2)} m</td>
+                <td>${r.temperature_c} °C</td>
+                <td>${r.rainfall_mm} mm</td>
+                <td>${r.ph}</td>
+                <td>${r.dissolved_oxygen_mg_l} mg/L</td>
+                <td>
+                    <button class="btn-sm danger" style="padding:0.1rem 0.35rem; font-size:0.6rem;" onclick="deleteRecord(${r.id})"><i class="fa-solid fa-trash"></i></button>
+                </td>
+            </tr>
+        `).join('');
+    } catch(e) { console.error('DB Explorer load failed:', e); }
+}
 
-            cmdMap = L.map('command-map').setView(indiaCenter, zoomLevel);
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                maxZoom: 12,
-                attribution: '&copy; OpenStreetMap'
-            }).addTo(cmdMap);
+function changeDbPage(delta, isAbsolute = false) {
+    if (isAbsolute) S.dbPage = Math.min(S.dbTotalPages, S.dbPage + 1);
+    else if (delta === 1) S.dbPage = 1;
+    else S.dbPage = Math.max(1, S.dbPage + delta);
+    loadDbExplorer();
+}
 
-            gisMap = L.map('gis-map').setView(indiaCenter, zoomLevel);
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                maxZoom: 12,
-                attribution: '&copy; OpenStreetMap'
-            }).addTo(gisMap);
+function goToLastDbPage() { S.dbPage = S.dbTotalPages; loadDbExplorer(); }
+
+function resetDbFilters() {
+    document.getElementById('db-search').value = '';
+    document.getElementById('db-filter-station').value = 'ALL';
+    document.getElementById('db-start-date').value = '';
+    document.getElementById('db-end-date').value = '';
+    document.getElementById('db-min-level').value = '';
+    document.getElementById('db-max-level').value = '';
+    document.getElementById('db-sort').value = '-date';
+    document.getElementById('db-page-size').value = '50';
+    S.dbPage = 1;
+    loadDbExplorer();
+}
+
+function exportCSV() {
+    const station = document.getElementById('db-filter-station')?.value || 'ALL';
+    window.location.href = `/api/data/export-csv/?station_id=${station}`;
+}
+
+async function resetDatabase() {
+    if (!confirm('Are you sure you want to reset the SQLite database back to clean 7,300 pristine records?')) return;
+    try {
+        const r = await fetch('/api/data/reset-database/', {method:'POST'});
+        const d = await r.json();
+        alert(d.message);
+        await Promise.all([fetchWaterData(), fetchOverview()]);
+        updateGlobalUI();
+        loadDbExplorer();
+        loadIncidents();
+        loadPriority();
+    } catch(e) { alert('Failed to reset database: ' + e.message); }
+}
+
+async function deleteRecord(id) {
+    if (!confirm(`Delete SQLite record #${id}?`)) return;
+    try {
+        await fetch(`/api/water-quality/${id}/`, {method:'DELETE'});
+        await Promise.all([fetchWaterData(), fetchOverview()]);
+        updateGlobalUI();
+        loadDbExplorer();
+    } catch(e) { alert('Failed to delete record: ' + e.message); }
+}
+
+// Telemetry Injection Modal
+function openInjectModal() {
+    document.getElementById('inj-date').value = curDate();
+    document.getElementById('inject-modal-bg').classList.add('open');
+}
+function closeInjectModal() { document.getElementById('inject-modal-bg').classList.remove('open'); }
+
+function applyInjectPreset() {
+    const preset = document.getElementById('inj-preset').value;
+    if (preset === 'drought_spike') {
+        document.getElementById('inj-level').value = '19.8';
+        document.getElementById('inj-rain').value = '0.0';
+    } else if (preset === 'sensor_flatline') {
+        document.getElementById('inj-level').value = '0.0';
+        document.getElementById('inj-rain').value = '0.0';
+    } else if (preset === 'recharge_event') {
+        document.getElementById('inj-level').value = '3.2';
+        document.getElementById('inj-rain').value = '45.0';
+    }
+}
+
+async function submitTelemetryInject() {
+    const stId = document.getElementById('inj-station').value;
+    const date = document.getElementById('inj-date').value;
+    const level = parseFloat(document.getElementById('inj-level').value);
+    const temp = parseFloat(document.getElementById('inj-temp').value);
+    const rain = parseFloat(document.getElementById('inj-rain').value);
+    const ph = parseFloat(document.getElementById('inj-ph').value);
+
+    // Get lat/lon for station
+    const st = S.stations.find(s => s.id === stId) || {lat: 28.6, lon: 77.2};
+
+    try {
+        const r = await fetch('/api/water-quality/', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                station_id: stId, lat: st.lat, lon: st.lon, date: date,
+                water_level_m: level, temperature_c: temp, rainfall_mm: rain,
+                ph: ph, dissolved_oxygen_mg_l: 6.5
+            })
+        });
+        if (r.ok) {
+            closeInjectModal();
+            alert(`⚡ Live Reading Injected into SQLite DB for ${stId} on ${date}!`);
+            await Promise.all([fetchWaterData(), fetchOverview()]);
+            updateGlobalUI();
+            loadDbExplorer();
+            loadIncidents();
+            loadPriority();
+        } else {
+            const err = await r.json();
+            alert('Error injecting telemetry: ' + JSON.stringify(err));
         }
+    } catch(e) { alert('Injection failed: ' + e.message); }
+}
 
-        async function fetchInitialData() {
-            try {
-                const res = await fetch('/api/water-quality/');
-                allWaterData = await res.json();
+// ==================== STATION INSPECTOR (FROM BACKEND) ====================
+async function inspectStation(stId) {
+    S.selectedStation = stId;
+    document.getElementById('insp-id').textContent = stId;
+    document.getElementById('inspector-content').innerHTML = '<div class="loading">Loading station profile...</div>';
+    try {
+        const r = await fetch(`/api/data/stations/${stId}/profile/?as_of=${curDate()}`);
+        const p = await r.json();
+        if (p.error) { document.getElementById('inspector-content').innerHTML = `<div class="err">${p.error}</div>`; return; }
 
-                // Get unique stations
-                const stMap = new Map();
-                allWaterData.forEach(r => {
-                    if (!stMap.has(r.station_id)) {
-                        stMap.set(r.station_id, {
-                            id: r.station_id,
-                            lat: r.lat,
-                            lon: r.lon
-                        });
-                    }
-                });
-                stationsList = Array.from(stMap.values());
-
-                // Populate forecast select dropdown
-                const sel = document.getElementById('forecast-station-select');
-                sel.innerHTML = stationsList.map(s => `<option value="${s.id}">${s.id} (Lat ${s.lat.toFixed(2)}, Lon ${s.lon.toFixed(2)})</option>`).join('');
-            } catch (e) {
-                console.error("Failed to fetch initial telemetry data:", e);
-            }
-        }
-
-        function initCharts() {
-            // 1. Mini hydrograph in Map tab
-            const ctxMini = document.getElementById('mini-hydrograph-chart').getContext('2d');
-            miniChart = new Chart(ctxMini, {
-                type: 'line',
-                data: {
-                    labels: Array.from({length: 30}, (_, i) => `D-${30-i}`),
-                    datasets: [{
-                        data: Array.from({length: 30}, () => 8.0),
-                        borderColor: '#06b6d4',
-                        backgroundColor: 'rgba(6, 182, 212, 0.15)',
-                        fill: true,
-                        tension: 0.3,
-                        pointRadius: 0
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { display: false } },
-                    scales: {
-                        x: { display: false },
-                        y: { grid: { color: '#1e293b' }, ticks: { color: '#94a3b8' } }
-                    }
-                }
-            });
-
-            // 2. Main Forecast Chart
-            const ctxMain = document.getElementById('main-forecast-chart').getContext('2d');
-            const histLabels = Array.from({length: 365}, (_, i) => `D${i+1}`);
-            const foreLabels = Array.from({length: 90}, (_, i) => `+${i+1}d`);
-            const allLabels = [...histLabels, ...foreLabels];
-
-            mainChart = new Chart(ctxMain, {
-                type: 'line',
-                data: {
-                    labels: allLabels,
-                    datasets: [
-                        {
-                            label: 'Historical Observed Water Level (m)',
-                            data: Array.from({length: 365}, () => null),
-                            borderColor: '#3b82f6',
-                            borderWidth: 2,
-                            pointRadius: 0,
-                            tension: 0.2
-                        },
-                        {
-                            label: 'Ridge P50 Forecast (m)',
-                            data: Array.from({length: 455}, () => null),
-                            borderColor: '#06b6d4',
-                            borderWidth: 2.5,
-                            borderDash: [5, 5],
-                            pointRadius: 0,
-                            tension: 0.2
-                        },
-                        {
-                            label: 'P90 Upper Bound',
-                            data: Array.from({length: 455}, () => null),
-                            borderColor: 'transparent',
-                            backgroundColor: 'rgba(6, 182, 212, 0.15)',
-                            fill: '+1',
-                            pointRadius: 0
-                        },
-                        {
-                            label: 'P10 Lower Bound',
-                            data: Array.from({length: 455}, () => null),
-                            borderColor: 'transparent',
-                            fill: false,
-                            pointRadius: 0
-                        },
-                        {
-                            label: 'Critical Threshold (15.0m)',
-                            data: Array.from({length: 455}, () => 15.0),
-                            borderColor: '#ef4444',
-                            borderWidth: 1.5,
-                            pointRadius: 0
-                        }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { labels: { color: '#94a3b8' } } },
-                    scales: {
-                        x: { grid: { color: '#1e293b' }, ticks: { color: '#94a3b8', maxTicksLimit: 15 } },
-                        y: { grid: { color: '#1e293b' }, ticks: { color: '#94a3b8' }, reverse: true }
-                    }
-                }
-            });
-
-            // 3. Scenario Response Chart
-            const ctxScen = document.getElementById('scenario-response-chart').getContext('2d');
-            scenChart = new Chart(ctxScen, {
-                type: 'line',
-                data: {
-                    labels: Array.from({length: 30}, (_, i) => `Day ${i+1}`),
-                    datasets: [
-                        {
-                            label: 'Baseline Trajectory',
-                            data: Array.from({length: 30}, (_, i) => 8.10 + i * 0.04),
-                            borderColor: '#94a3b8',
-                            borderWidth: 2,
-                            borderDash: [4, 4],
-                            pointRadius: 0
-                        },
-                        {
-                            label: 'Scenario Response Trajectory',
-                            data: Array.from({length: 30}, (_, i) => 8.10 - i * 0.02),
-                            borderColor: '#10b981',
-                            backgroundColor: 'rgba(16, 185, 129, 0.12)',
-                            fill: true,
-                            borderWidth: 3,
-                            pointRadius: 0
-                        }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { labels: { color: '#94a3b8' } } },
-                    scales: {
-                        x: { grid: { color: '#1e293b' }, ticks: { color: '#94a3b8' } },
-                        y: { grid: { color: '#1e293b' }, ticks: { color: '#94a3b8' }, reverse: true }
-                    }
-                }
-            });
-        }
-
-        function updateAllViews() {
-            const curDate = DATES_LOOKUP[currentReplayDay];
-            document.getElementById('replay-date-display').innerText = curDate;
-            document.getElementById('replay-slider').value = currentReplayDay;
-            document.getElementById('replay-day-index').innerText = currentReplayDay + 1;
-
-            // 1. Update Map Markers
-            renderMapMarkers();
-
-            // 2. Update Incidents & Actions
-            renderIncidentList();
-            renderActionQueue();
-
-            // 3. Update Forecast View
-            updateForecastData();
-
-            // 4. Update Inspector
-            updateInspectorData('DWLR-001');
-
-            // 5. Update Optimizer & MCDA
-            renderOptimizerPortfolio();
-            renderMCDARankings();
-        }
-
-        let cmdMarkers = [];
-        let gisMarkers = [];
-
-        function renderMapMarkers() {
-            cmdMarkers.forEach(m => cmdMap.removeLayer(m));
-            gisMarkers.forEach(m => gisMap.removeLayer(m));
-            cmdMarkers = [];
-            gisMarkers = [];
-
-            stationsList.forEach((st, idx) => {
-                const isCritical = (idx === 16 || idx === 17); // Region 17 / Region 22 wells
-                const color = isCritical ? '#ef4444' : '#10b981';
-
-                const m1 = L.circleMarker([st.lat, st.lon], {
-                    radius: isCritical ? 9 : 7,
-                    fillColor: color,
-                    color: '#fff',
-                    weight: 1.5,
-                    opacity: 1,
-                    fillOpacity: 0.85
-                }).addTo(cmdMap);
-                m1.bindPopup(`<strong>${st.id}</strong><br>Status: ${isCritical ? 'ALERT: RAPID DECLINE' : 'NORMAL'}`);
-                cmdMarkers.push(m1);
-
-                const m2 = L.circleMarker([st.lat, st.lon], {
-                    radius: isCritical ? 10 : 7,
-                    fillColor: color,
-                    color: '#38bdf8',
-                    weight: 2,
-                    opacity: 1,
-                    fillOpacity: 0.85
-                }).addTo(gisMap);
-                m2.bindPopup(`<strong>${st.id}</strong><br>Click to inspect telemetry`);
-                m2.on('click', () => updateInspectorData(st.id));
-                gisMarkers.push(m2);
-            });
-        }
-
-        function renderIncidentList() {
-            const listEl = document.getElementById('command-incident-list');
-            listEl.innerHTML = `
-                <div class="incident-card" onclick="switchTab('map')">
-                    <div class="incident-header">
-                        <span class="incident-name">REGIONAL STRESS EVENT #014</span>
-                        <span class="incident-badge">CRITICAL</span>
-                    </div>
-                    <div class="incident-body">
-                        18 stations affected across West Alluvial Basin. Persistent temporal decline across 23 days confirmed by multi-station spatial correlation.
-                    </div>
+        const t = p.trust || {};
+        const s = p.stats || {};
+        const factors = t.factors || {};
+        document.getElementById('inspector-content').innerHTML = `
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.5rem; margin-bottom:0.6rem;">
+                <div class="act-card"><div style="font-size:0.62rem; color:var(--text-3);">CURRENT LEVEL</div><div style="font-size:1.2rem; font-weight:800; font-family:var(--mono);">${s.current_level} m</div></div>
+                <div class="act-card"><div style="font-size:0.62rem; color:var(--text-3);">TRUST SCORE</div><div style="font-size:1.2rem; font-weight:800; font-family:var(--mono); color:${t.trust_score>=75?'var(--green)':t.trust_score>=50?'var(--amber)':'var(--red)'};">${t.trust_score}/100</div><div style="font-size:0.58rem; color:var(--text-3);">${t.classification}</div></div>
+            </div>
+            <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:0.4rem; margin-bottom:0.6rem; font-size:0.65rem;">
+                <div class="act-card"><div style="color:var(--text-3);">7D Change</div><div style="font-family:var(--mono); font-weight:700;">${s.change_7d !== undefined ? (s.change_7d > 0 ? '+' : '') + s.change_7d + 'm' : '—'}</div></div>
+                <div class="act-card"><div style="color:var(--text-3);">30D Change</div><div style="font-family:var(--mono); font-weight:700;">${s.change_30d !== undefined ? (s.change_30d > 0 ? '+' : '') + s.change_30d + 'm' : '—'}</div></div>
+                <div class="act-card"><div style="color:var(--text-3);">Obs Count</div><div style="font-family:var(--mono); font-weight:700;">${s.observation_count}</div></div>
+            </div>
+            <div style="font-size:0.72rem; font-weight:700; color:var(--text-2); margin-bottom:0.3rem;">7-FACTOR TRUST (TSOD + GEMS-QC)</div>
+            ${Object.entries(factors).map(([k,v]) => `
+                <div class="trust-bar">
+                    <div class="row"><span>${k.replace(/_/g,' ')}</span><span style="font-family:var(--mono);">${Math.round(v*100)}%</span></div>
+                    <div class="track"><div class="fill" style="width:${v*100}%"></div></div>
                 </div>
-                <div class="incident-card" style="border-left-color: var(--warning);" onclick="switchTab('map')">
-                    <div class="incident-header">
-                        <span class="incident-name">SALINITY INTRUSION RISK #009</span>
-                        <span class="incident-badge" style="background:rgba(245,158,11,0.15); color:var(--warning); border-color:rgba(245,158,11,0.3);">ELEVATED</span>
-                    </div>
-                    <div class="incident-body">
-                        Hydraulic head deficit exceeding 1.2m relative to coastal datum in Region 22.
-                    </div>
-                </div>
-            `;
+            `).join('')}
+            <div style="font-size:0.72rem; font-weight:700; color:var(--text-2); margin:0.5rem 0 0.3rem;">TREND</div>
+            <div style="font-size:0.7rem; color:var(--text-2); font-family:var(--mono);">
+                Direction: ${p.trend?.trend_direction || '—'} | Slope: ${p.trend?.sen_slope_m_per_year || '—'} m/yr | Kendall τ: ${p.trend?.kendall_tau || '—'}
+            </div>
+            <div style="font-size:0.72rem; font-weight:700; color:var(--text-2); margin:0.5rem 0 0.3rem;">EVIDENCE</div>
+            <div style="font-size:0.65rem; color:var(--text-3); line-height:1.4;">${(t.evidence||[]).join('<br>')}</div>
+        `;
+        S.drawerEvidence.trust = t;
+        S.drawerEvidence.stationProfile = p;
+    } catch(e) { document.getElementById('inspector-content').innerHTML = `<div class="err">Error: ${e.message}</div>`; }
+}
+
+// ==================== FORECAST (FROM BACKEND) ====================
+async function loadForecast() {
+    const stId = document.getElementById('fc-station')?.value || S.selectedStation;
+    try {
+        const r = await fetch(`/api/data/stations/${stId}/profile/?as_of=${curDate()}`);
+        const p = await r.json();
+        if (p.error) return;
+        S.forecast = p;
+        const fc = p.forecast || {};
+        const st = p.stats || {};
+        const sh = p.stress_horizon || {};
+        const trend = p.trend || {};
+
+        document.getElementById('fc-model-badge').textContent = fc.model || 'Ridge';
+        document.getElementById('fc-metrics').innerHTML = `
+            <div class="prov-item"><span class="k">Current Level</span><span class="v">${st.current_level} m</span></div>
+            <div class="prov-item"><span class="k">Predicted 90d</span><span class="v" style="color:var(--cyan);">${fc.p50 && fc.p50.length ? fc.p50[fc.p50.length-1] + ' m' : '—'}</span></div>
+            <div class="prov-item"><span class="k">MAE</span><span class="v">${fc.mae !== undefined ? fc.mae + ' m' : 'N/A'}</span></div>
+            <div class="prov-item"><span class="k">RMSE</span><span class="v">${fc.rmse !== undefined ? fc.rmse + ' m' : 'N/A'}</span></div>
+            <div class="prov-item"><span class="k">Residual σ</span><span class="v">${fc.uncertainty?.resid_std !== undefined ? fc.uncertainty.resid_std + ' m' : 'N/A'}</span></div>
+            <div class="prov-item"><span class="k">Trend</span><span class="v">${trend.trend_direction} (${trend.sen_slope_m_per_year} m/yr)</span></div>
+            <div class="prov-item"><span class="k">Trained</span><span class="v">${fc.trained ? 'YES' : 'NO'}</span></div>
+            <div class="prov-item"><span class="k">Status</span><span class="v" style="color:var(--green);">${fc.status || '—'}</span></div>
+        `;
+
+        const horizonDays = sh.days_to_threshold;
+        document.getElementById('fc-horizon-val').textContent = horizonDays !== null && horizonDays !== undefined ? horizonDays : '> 90';
+        document.getElementById('fc-horizon-val').style.color = horizonDays && horizonDays < 90 ? 'var(--red)' : horizonDays && horizonDays < 180 ? 'var(--amber)' : 'var(--green)';
+        document.getElementById('fc-horizon-detail').innerHTML = `
+            <strong>Threshold:</strong> ${sh.threshold_m} m<br>
+            <strong>Current:</strong> ${sh.current_level_m} m<br>
+            <strong>Basis:</strong> ${sh.basis}<br>
+            <strong style="color:var(--amber);">${sh.label}</strong>
+        `;
+
+        if (mainChart) {
+            const stData = S.waterData.filter(r => r.station_id === stId).sort((a,b) => a.date.localeCompare(b.date));
+            const upToReplay = stData.slice(0, S.replayDay + 1);
+            const histLevels = upToReplay.map(r => r.water_level_m);
+            const histDates = upToReplay.map(r => r.date.slice(5));
+
+            const forecastDates = fc.p50 ? fc.p50.map((_,i) => `+${i+1}d`) : [];
+            const allLabels = [...histDates, ...forecastDates];
+
+            const histData = histLevels.map(v => v);
+            const p50Data = new Array(histLevels.length).fill(null).concat(fc.p50 || []);
+            const p90Data = new Array(histLevels.length).fill(null).concat(fc.p90 || []);
+            const p10Data = new Array(histLevels.length).fill(null).concat(fc.p10 || []);
+            const threshData = new Array(allLabels.length).fill(15.0);
+
+            while (histData.length < allLabels.length) histData.push(null);
+
+            mainChart.data.labels = allLabels;
+            mainChart.data.datasets[0].data = histData;
+            mainChart.data.datasets[1].data = p50Data;
+            mainChart.data.datasets[2].data = p90Data;
+            mainChart.data.datasets[3].data = p10Data;
+            mainChart.data.datasets[4].data = threshData;
+            mainChart.update();
         }
+        S.drawerEvidence.forecast = fc;
+        S.drawerEvidence.stressHorizon = sh;
+    } catch(e) { console.error('Forecast load failed:', e); }
+}
 
-        function renderActionQueue() {
-            const queueEl = document.getElementById('command-action-queue');
-            queueEl.innerHTML = `
-                <div class="action-card">
-                    <div class="action-card-header">
-                        <span>1. Protect Region 17 Aquifer</span>
-                        <span style="color:var(--danger); font-family:var(--font-mono);">INR 15.0L</span>
-                    </div>
-                    <div style="font-size:0.74rem; color:var(--text-secondary);">Deploy managed recharge structure to arrest 1.4m/yr drawdown.</div>
-                    <div class="action-meta">
-                        <span>Benefit: <strong>+27%</strong></span>
-                        <span>Confidence: <strong>91%</strong></span>
-                    </div>
-                </div>
-                <div class="action-card">
-                    <div class="action-card-header">
-                        <span>2. Demand Quotas (Region 08)</span>
-                        <span style="color:var(--warning); font-family:var(--font-mono);">INR 8.0L</span>
-                    </div>
-                    <div style="font-size:0.74rem; color:var(--text-secondary);">Enforce agricultural extraction limits to extend stress horizon.</div>
-                    <div class="action-meta">
-                        <span>Benefit: <strong>+15%</strong></span>
-                        <span>Confidence: <strong>88%</strong></span>
-                    </div>
-                </div>
-            `;
+// ==================== SCENARIO (FROM BACKEND) ====================
+function onScenParam() {
+    document.getElementById('lbl-rain').textContent = `${document.getElementById('sl-rain').value}%`;
+    document.getElementById('lbl-pump').textContent = `${document.getElementById('sl-pump').value}%`;
+    document.getElementById('lbl-rech').textContent = document.getElementById('sl-rech').value;
+    document.getElementById('lbl-dem').textContent = `${document.getElementById('sl-dem').value}%`;
+}
+
+async function runScenario() {
+    const btn = document.getElementById('btn-scen');
+    btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Running...';
+    const mode = document.querySelector('input[name="sim-eng"]:checked')?.value || 'physics';
+    const payload = {
+        mode, rainfall_change_pct: parseFloat(document.getElementById('sl-rain').value),
+        extraction_change_pct: parseFloat(document.getElementById('sl-pump').value),
+        recharge_change_pct: parseFloat(document.getElementById('sl-rech').value) / 25.0,
+        demand_change_pct: parseFloat(document.getElementById('sl-dem').value)
+    };
+    try {
+        const r = await fetch('/api/jalnetra/scenario/run/', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)});
+        const d = await r.json();
+        const base = d.baseline || {};
+        const scen = d.scenario || {};
+        const diff = d.difference || {};
+
+        document.getElementById('scen-engine-badge').textContent = d.engine || '—';
+        document.getElementById('scen-base').textContent = base.mean_groundwater !== undefined ? `${base.mean_groundwater} m` : '—';
+        document.getElementById('scen-result').textContent = scen.mean_groundwater !== undefined ? `${scen.mean_groundwater} m` : '—';
+        document.getElementById('scen-delta').textContent = diff.groundwater_change !== undefined ? `${diff.groundwater_change > 0 ? '+' : ''}${diff.groundwater_change} m` : '—';
+        document.getElementById('scen-runtime').textContent = `Engine: ${d.engine || '—'} | Status: ${d.status || '—'} | Runtime: ${d.runtime_seconds || '—'}s`;
+
+        if (scenChart && base.mean_groundwater !== undefined) {
+            const labels = Array.from({length:30}, (_,i) => `Day ${i+1}`);
+            const baseData = labels.map((_,i) => base.mean_groundwater + (i * 0.02));
+            const scenData = labels.map((_,i) => scen.mean_groundwater + (i * 0.02));
+            scenChart.data.labels = labels;
+            scenChart.data.datasets[0].data = baseData;
+            scenChart.data.datasets[1].data = scenData;
+            scenChart.update();
         }
+        S.drawerEvidence.scenario = d;
+    } catch(e) { document.getElementById('scen-runtime').textContent = `Error: ${e.message}`; }
+    finally { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-play"></i> Run Scenario'; }
+}
 
-        function updateInspectorData(stId) {
-            document.getElementById('inspector-id').innerText = stId;
-            const stData = allWaterData.filter(r => r.station_id === stId).slice(0, currentReplayDay + 1);
-            const latest = stData.length > 0 ? stData[stData.length - 1] : { water_level_m: 8.08 };
+// ==================== OPTIMIZER (FROM BACKEND) ====================
+function onOptParam() {
+    const b = parseInt(document.getElementById('sl-bgt').value);
+    document.getElementById('lbl-bgt').textContent = `₹${(b/100000).toFixed(1)}L`;
+    document.getElementById('lbl-teams').textContent = document.getElementById('sl-teams').value;
+}
 
-            document.getElementById('insp-level').innerText = `${latest.water_level_m.toFixed(2)} m`;
-            
-            // 7-factor bars
-            const factors = [
-                { name: "Missingness Valid", val: 98 },
-                { name: "Physical Range Check", val: 100 },
-                { name: "Rate of Change (RoC)", val: 92 },
-                { name: "Persistence Check", val: 89 },
-                { name: "Neighbor Consensus", val: 84 },
-                { name: "Temporal Consistency", val: 94 },
-                { name: "Sensor Health Prior", val: 95 }
-            ];
+function onWeightChange() {
+    document.getElementById('lbl-wh').textContent = `${document.getElementById('sl-wh').value}%`;
+    document.getElementById('lbl-wp').textContent = `${document.getElementById('sl-wp').value}%`;
+    document.getElementById('lbl-wv').textContent = `${document.getElementById('sl-wv').value}%`;
+}
 
-            const barsEl = document.getElementById('insp-trust-bars');
-            barsEl.innerHTML = factors.map(f => `
-                <div>
-                    <div style="display:flex; justify-content:space-between; font-size:0.7rem; color:var(--text-secondary); margin-bottom:0.15rem;">
-                        <span>${f.name}</span>
-                        <span style="font-family:var(--font-mono);">${f.val}%</span>
-                    </div>
-                    <div style="height:4px; background:var(--bg-surface); border-radius:2px; overflow:hidden;">
-                        <div style="height:100%; width:${f.val}%; background:var(--accent-cyan);"></div>
-                    </div>
+async function runOptimizer() {
+    const btn = document.getElementById('btn-opt');
+    btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Solving...';
+    try {
+        const r = await fetch('/api/jalnetra/optimizer/run/', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({
+            budget: parseInt(document.getElementById('sl-bgt').value),
+            team_capacity: parseInt(document.getElementById('sl-teams').value)
+        })});
+        S.optimizer = await r.json();
+        const o = S.optimizer;
+        document.getElementById('opt-summary').textContent = `${o.engine||'—'} | Status: ${o.status||'—'} | Budget: ₹${((o.budget_used||0)/100000).toFixed(1)}L / ₹${((o.budget||0)/100000).toFixed(1)}L | Teams: ${o.teams_used||0}/${o.team_capacity||0}`;
+        const items = o.selected_interventions || [];
+        document.getElementById('opt-portfolio').innerHTML = items.length === 0
+            ? '<div style="font-size:0.74rem; color:var(--text-3);">No feasible interventions under current constraints.</div>'
+            : items.map(it => `
+                <div class="act-card" style="margin-top:0.4rem;">
+                    <div class="top"><span>✓ ${it.type || it.name} — ${it.region_id || it.region}</span><span style="color:var(--cyan); font-family:var(--mono);">₹${(it.cost/100000).toFixed(1)}L</span></div>
+                    <div class="meta"><span>Risk Reduction: -${it.expected_risk_reduction || it.risk_reduction}%</span><span>Teams: ${it.teams||1}</span><span>Benefit: ${it.benefit_score||'—'}</span></div>
+                    <div style="font-size:0.62rem; color:var(--text-3); margin-top:0.15rem;">${(it.why_selected||[]).join(' | ')}</div>
                 </div>
             `).join('');
+        renderKPIs();
+        S.drawerEvidence.optimizer = o;
+    } catch(e) { document.getElementById('opt-portfolio').innerHTML = `<div class="err">${e.message}</div>`; }
+    finally { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-calculator"></i> Solve Portfolio'; }
+}
 
-            // Update mini chart
-            if (miniChart && stData.length > 0) {
-                const recent = stData.slice(-30);
-                miniChart.data.labels = recent.map(r => r.date.slice(5));
-                miniChart.data.datasets[0].data = recent.map(r => r.water_level_m);
-                miniChart.update();
-            }
-        }
+// ==================== TECHNICAL TAB ====================
+function renderPipelineStatus() {
+    if (!S.overview) return;
+    const engines = S.overview.engines || {};
+    const h = S.overview.system_health || {};
+    const db = S.overview.database || {};
+    document.getElementById('pipeline-status').innerHTML = `
+        <div style="font-family:var(--mono); font-size:0.72rem; color:var(--text-2); line-height:1.8; background:var(--bg-surface); padding:0.8rem; border-radius:6px; border:1px solid var(--border);">
+            ${Object.entries(engines).map(([k,v], i) => `
+                ${i+1}. <span style="color:${v.status==='OPERATIONAL'?'var(--green)':'var(--amber)'};">●</span> ${k.replace(/_/g,' ').toUpperCase()} — ${v.status} <span style="color:var(--text-3);">(${v.detail})</span><br>
+            `).join('')}
+        </div>
+        <div style="margin-top:0.6rem;">
+            <div class="prov-item"><span class="k">Overall Health</span><span class="v" style="color:var(--green);">${h.overall_pct}%</span></div>
+            ${Object.entries(h.components||{}).map(([k,v]) => `<div class="prov-item"><span class="k">${k.replace(/_/g,' ')}</span><span class="v">${v}%</span></div>`).join('')}
+            <div class="prov-item"><span class="k">Total Records</span><span class="v">${db.total_records}</span></div>
+            <div class="prov-item"><span class="k">Date Range</span><span class="v">${db.date_range?.start} → ${db.date_range?.end}</span></div>
+        </div>
+    `;
 
-        function updateForecastData() {
-            const stId = document.getElementById('forecast-station-select').value || 'DWLR-001';
-            const stData = allWaterData.filter(r => r.station_id === stId).slice(0, currentReplayDay + 1);
-            
-            if (stData.length === 0) return;
+    const fc = S.forecast?.forecast || {};
+    const benchEl = document.getElementById('bench-table');
+    document.getElementById('bench-badge').textContent = fc.model ? `FROM ${fc.model.toUpperCase()} ENGINE` : 'AWAITING DATA';
+    benchEl.innerHTML = `
+        <table class="tech-tbl">
+            <thead><tr><th>Model</th><th>MAE (m)</th><th>RMSE (m)</th><th>Status</th></tr></thead>
+            <tbody>
+                <tr class="hl"><td style="color:var(--cyan);"><strong>Ridge Seasonal</strong></td><td><strong>${fc.mae !== undefined ? fc.mae : '—'}</strong></td><td><strong>${fc.rmse !== undefined ? fc.rmse : '—'}</strong></td><td style="color:var(--green);">${fc.status || '—'}</td></tr>
+                <tr><td>ST-GNN (Experimental)</td><td colspan="2" style="color:var(--text-3);">UNTRAINED CHECKPOINT — No validated metrics</td><td style="color:var(--amber);">EXPERIMENTAL</td></tr>
+            </tbody>
+        </table>
+        <div style="font-size:0.65rem; color:var(--text-3); margin-top:0.4rem; line-height:1.3;">
+            Ridge MAE/RMSE are computed from training residuals on ${S.forecast?.stats?.observation_count || '—'} observations. ST-GNN architecture is executable via PyTorch forward pass but has no pretrained checkpoint; values would be scientifically meaningless.
+        </div>
+    `;
+}
 
-            const histLevels = stData.map(r => r.water_level_m);
-            const lastVal = histLevels[histLevels.length - 1];
+// ==================== EVIDENCE DRAWER ====================
+function openDrawer() {
+    document.getElementById('drawer-bg').classList.add('open');
+    document.getElementById('drawer').classList.add('open');
+    const el = document.getElementById('drawer-content');
+    const e = S.drawerEvidence;
+    let html = '';
 
-            document.getElementById('metric-cur-level').innerText = `${lastVal.toFixed(2)} m`;
-            document.getElementById('metric-pred-level').innerText = `${(lastVal + 0.65).toFixed(2)} m`;
+    if (e.trust) {
+        html += `<div class="act-card" style="margin-bottom:0.5rem;"><div style="font-weight:700; color:var(--cyan); font-size:0.78rem; margin-bottom:0.2rem;">STATION DATA TRUST</div>
+            <div style="font-size:0.7rem; color:var(--text-2);">Station: ${e.trust.station_id} | Score: ${e.trust.trust_score}/100 | ${e.trust.classification}</div>
+            <div style="font-size:0.65rem; color:var(--text-3); margin-top:0.2rem;">${(e.trust.evidence||[]).join('<br>')}</div></div>`;
+    }
+    if (e.incidents && e.incidents.length) {
+        html += `<div class="act-card" style="margin-bottom:0.5rem;"><div style="font-weight:700; color:var(--cyan); font-size:0.78rem; margin-bottom:0.2rem;">INCIDENT EVIDENCE</div>
+            ${e.incidents.map(inc => `<div style="font-size:0.68rem; color:var(--text-2); margin-bottom:0.3rem;">${inc.incident_id}: ${inc.severity} — ${inc.station_count} stations, confidence ${Math.round(inc.confidence*100)}%<br><span style="color:var(--text-3);">${inc.explanation||''}</span></div>`).join('')}</div>`;
+    }
+    if (e.forecast) {
+        html += `<div class="act-card" style="margin-bottom:0.5rem;"><div style="font-weight:700; color:var(--cyan); font-size:0.78rem; margin-bottom:0.2rem;">FORECAST EVIDENCE</div>
+            <div style="font-size:0.7rem; color:var(--text-2);">Model: ${e.forecast.model} | Status: ${e.forecast.status} | MAE: ${e.forecast.mae}m | RMSE: ${e.forecast.rmse}m | Trained: ${e.forecast.trained}</div></div>`;
+    }
+    if (e.scenario) {
+        const sc = e.scenario;
+        html += `<div class="act-card" style="margin-bottom:0.5rem;"><div style="font-weight:700; color:var(--cyan); font-size:0.78rem; margin-bottom:0.2rem;">SCENARIO PHYSICS</div>
+            <div style="font-size:0.7rem; color:var(--text-2);">Engine: ${sc.engine} | Status: ${sc.status} | Δh: ${sc.difference?.groundwater_change}m | Runtime: ${sc.runtime_seconds}s</div>
+            <div style="font-size:0.62rem; color:var(--text-3); margin-top:0.2rem;">${(sc.assumptions||[]).join('<br>')}</div></div>`;
+    }
+    if (e.optimizer) {
+        const op = e.optimizer;
+        html += `<div class="act-card" style="margin-bottom:0.5rem;"><div style="font-weight:700; color:var(--cyan); font-size:0.78rem; margin-bottom:0.2rem;">OPTIMIZER SOLUTION</div>
+            <div style="font-size:0.7rem; color:var(--text-2);">Engine: ${op.engine} | Budget: ₹${((op.budget_used||0)/100000).toFixed(1)}L / ₹${((op.budget||0)/100000).toFixed(1)}L | Teams: ${op.teams_used}/${op.team_capacity} | Risk Reduction: ${op.total_expected_risk_reduction}%</div>
+            <div style="font-size:0.62rem; color:var(--text-3); margin-top:0.15rem;">Solver: ${op.solver?.name||'—'} (${op.solver?.status||'—'}, ${op.solver?.runtime_seconds||'—'}s)</div></div>`;
+    }
+    if (e.priority && e.priority.regions) {
+        html += `<div class="act-card" style="margin-bottom:0.5rem;"><div style="font-weight:700; color:var(--cyan); font-size:0.78rem; margin-bottom:0.2rem;">PRIORITY RANKING</div>
+            <div style="font-size:0.7rem; color:var(--text-2);">Engine: ${e.priority.engine} | Method: ${e.priority.methodology?.type}</div>
+            ${e.priority.ranking?.map(r => `<div style="font-size:0.65rem; color:var(--text-3);">#${r.rank} ${r.region_id}: ${r.priority_score}/100 (${r.classification})</div>`).join('')}</div>`;
+    }
+    if (!html) html = '<div style="font-size:0.75rem; color:var(--text-3);">Run analyses (trust, incidents, forecast, scenario, optimizer) to populate the evidence chain.</div>';
+    el.innerHTML = html;
+}
 
-            if (mainChart) {
-                const histData = Array.from({length: 455}, () => null);
-                for (let i = 0; i < histLevels.length; i++) {
-                    histData[i] = histLevels[i];
-                }
-                mainChart.data.datasets[0].data = histData;
+function closeDrawer() { document.getElementById('drawer-bg').classList.remove('open'); document.getElementById('drawer').classList.remove('open'); }
+function showIncidentEvidence(id) { openDrawer(); }
 
-                // Forecast trajectory
-                const predP50 = Array.from({length: 455}, () => null);
-                const predP90 = Array.from({length: 455}, () => null);
-                const predP10 = Array.from({length: 455}, () => null);
+// ==================== REPLAY ENGINE ====================
+function togglePlay() {
+    const btn = document.getElementById('btn-play');
+    if (S.playing) {
+        clearInterval(S.playInterval); S.playing = false;
+        btn.innerHTML = '<i class="fa-solid fa-play"></i> Play';
+    } else {
+        S.playing = true;
+        btn.innerHTML = '<i class="fa-solid fa-pause"></i> Pause';
+        const speed = parseInt(document.getElementById('replay-speed').value);
+        S.playInterval = setInterval(() => {
+            if (S.replayDay < 364) { S.replayDay++; onReplayChange(); }
+            else togglePlay();
+        }, Math.max(50, 400 / speed));
+    }
+}
 
-                for (let i = 0; i < 90; i++) {
-                    const idx = currentReplayDay + i;
-                    if (idx < 455) {
-                        const val = lastVal + (i * 0.012);
-                        predP50[idx] = val;
-                        predP90[idx] = val + 0.35 + (i * 0.005);
-                        predP10[idx] = val - 0.35 - (i * 0.005);
-                    }
-                }
+function stepReplay(days) { S.replayDay = Math.min(364, S.replayDay + days); onReplayChange(); }
+function resetReplay() { if (S.playing) togglePlay(); S.replayDay = 0; onReplayChange(); }
+function onSliderMove() { S.replayDay = parseInt(document.getElementById('replay-slider').value); onReplayChange(); }
 
-                mainChart.data.datasets[1].data = predP50;
-                mainChart.data.datasets[2].data = predP90;
-                mainChart.data.datasets[3].data = predP10;
-                mainChart.update();
-            }
-        }
-
-        function onForecastStationChange() {
-            updateForecastData();
-        }
-
-        function onScenarioParamChange() {
-            const r = document.getElementById('sl-rain').value;
-            const p = document.getElementById('sl-pump').value;
-            const rc = document.getElementById('sl-rech').value;
-            const d = document.getElementById('sl-demand').value;
-
-            document.getElementById('lbl-rain').innerText = `${r > 0 ? '+' : ''}${r}%`;
-            document.getElementById('lbl-pump').innerText = `${p > 0 ? '+' : ''}${p}%`;
-            document.getElementById('lbl-rech').innerText = `${rc} m³`;
-            document.getElementById('lbl-demand').innerText = `${d > 0 ? '+' : ''}${d}%`;
-        }
-
-        async function executeScenarioLab() {
-            const btn = document.getElementById('btn-run-scen');
-            btn.disabled = true;
-            btn.innerHTML = `<span class="spinner"></span> Running Simulation...`;
-
-            const p = parseFloat(document.getElementById('sl-pump').value);
-            const rc = parseFloat(document.getElementById('sl-rech').value);
-
-            try {
-                const res = await fetch('/api/jalnetra/scenario/run/', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        mode: 'physics',
-                        extraction_change_pct: p,
-                        recharge_change_pct: (rc / 25.0)
-                    })
-                });
-                const data = await res.json();
-                const diff = data.difference || {};
-                const gwChange = diff.groundwater_change !== undefined ? diff.groundwater_change : 0.62;
-
-                document.getElementById('scen-res-head').innerText = `${(8.10 + gwChange).toFixed(2)} m`;
-                document.getElementById('scen-res-delta').innerText = `${gwChange > 0 ? '+' : ''}${gwChange.toFixed(2)} m`;
-                document.getElementById('scen-runtime-msg').innerText = `Solver: ${data.engine || 'USGS_MODFLOW_6'} (${data.runtime_seconds || 0.484}s)`;
-
-                // Update scenario chart
-                if (scenChart) {
-                    scenChart.data.datasets[1].data = Array.from({length: 30}, (_, i) => 8.10 - (gwChange * (i/30)));
-                    scenChart.update();
-                }
-            } catch (e) {
-                console.error(e);
-            } finally {
-                btn.disabled = false;
-                btn.innerHTML = `<i class="fa-solid fa-play"></i> Run Scenario Simulation`;
-            }
-        }
-
-        function onOptParamChange() {
-            const b = parseInt(document.getElementById('sl-opt-budget').value);
-            const t = parseInt(document.getElementById('sl-opt-teams').value);
-
-            document.getElementById('lbl-opt-budget').innerText = `INR ${(b / 100000).toFixed(1)} Lakh`;
-            document.getElementById('lbl-opt-teams').innerText = `${t} Teams`;
-        }
-
-        async function executeOptimizerPass() {
-            const btn = document.getElementById('btn-solve-opt');
-            btn.disabled = true;
-            btn.innerHTML = `<span class="spinner"></span> Solving CP-SAT...`;
-
-            const b = parseInt(document.getElementById('sl-opt-budget').value);
-            const t = parseInt(document.getElementById('sl-opt-teams').value);
-
-            try {
-                const res = await fetch('/api/jalnetra/optimizer/run/', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ budget: b, team_capacity: t })
-                });
-                const data = await res.json();
-                renderOptimizerPortfolio(data);
-            } catch (e) {
-                console.error(e);
-            } finally {
-                btn.disabled = false;
-                btn.innerHTML = `<i class="fa-solid fa-calculator"></i> Solve Optimal Portfolio`;
-            }
-        }
-
-        function renderOptimizerPortfolio(data) {
-            const listEl = document.getElementById('optimizer-portfolio-list');
-            const items = (data && data.selected_interventions) ? data.selected_interventions : [
-                { name: "Managed Recharge Structure", region: "Region 17", cost: 1500000, risk_reduction: 27 },
-                { name: "Agricultural Demand Quotas", region: "Region 08", cost: 800000, risk_reduction: 15 },
-                { name: "QRP Sensor Expansion", region: "Region 12", cost: 400000, risk_reduction: 9 }
-            ];
-
-            listEl.innerHTML = items.map((item, idx) => `
-                <div class="action-card" style="margin-top: 0.5rem;">
-                    <div style="display:flex; justify-content:space-between; font-weight:700; color:#fff;">
-                        <span>✓ ${item.name} (${item.region || 'Region 17'})</span>
-                        <span style="color:var(--accent-cyan); font-family:var(--font-mono);">INR ${(item.cost / 100000).toFixed(1)}L</span>
-                    </div>
-                    <div class="action-meta">
-                        <span>Risk Reduction: <strong>-${item.risk_reduction || 25}%</strong></span>
-                        <span>Teams: <strong>1 Team</strong></span>
-                    </div>
-                </div>
-            `).join('');
-        }
-
-        function onWeightChange() {
-            document.getElementById('lbl-w-hydro').innerText = `${document.getElementById('sl-w-hydro').value}%`;
-            document.getElementById('lbl-w-pop').innerText = `${document.getElementById('sl-w-pop').value}%`;
-            document.getElementById('lbl-w-vuln').innerText = `${document.getElementById('sl-w-vuln').value}%`;
-            renderMCDARankings();
-        }
-
-        function renderMCDARankings() {
-            const listEl = document.getElementById('mcda-ranked-regions-list');
-            const regions = [
-                { id: "Region 22", score: 56.3, status: "MONITOR & PREPARE", pop: "42,800" },
-                { id: "Region 17", score: 52.1, status: "MONITOR & PREPARE", pop: "38,500" },
-                { id: "Region 12", score: 48.4, status: "ROUTINE", pop: "61,200" },
-                { id: "Region 08", score: 44.0, status: "ROUTINE", pop: "29,000" }
-            ];
-
-            listEl.innerHTML = regions.map((r, i) => `
-                <div class="action-card" style="margin-top: 0.5rem; display:flex; justify-content:space-between; align-items:center;">
-                    <div>
-                        <div style="font-weight:700; color:#fff;">${i+1}. ${r.id}</div>
-                        <div style="font-size:0.7rem; color:var(--text-muted);">Pop: ${r.pop} &bull; Status: ${r.status}</div>
-                    </div>
-                    <div style="font-size:1.2rem; font-weight:800; font-family:var(--font-mono); color:var(--warning);">${r.score}</div>
-                </div>
-            `).join('');
-        }
-
-        // Replay Engine
-        function togglePlay() {
-            const btn = document.getElementById('btn-play');
-            if (isPlaying) {
-                clearInterval(playInterval);
-                isPlaying = false;
-                btn.innerHTML = `<i class="fa-solid fa-play"></i> Play`;
-            } else {
-                isPlaying = true;
-                btn.innerHTML = `<i class="fa-solid fa-pause"></i> Pause`;
-                const speed = parseInt(document.getElementById('replay-speed').value);
-                const delay = Math.max(50, 400 / speed);
-                playInterval = setInterval(() => {
-                    if (currentReplayDay < 364) {
-                        currentReplayDay++;
-                        updateAllViews();
-                    } else {
-                        togglePlay();
-                    }
-                }, delay);
-            }
-        }
-
-        function stepReplay(days) {
-            currentReplayDay = Math.min(364, currentReplayDay + days);
-            updateAllViews();
-        }
-
-        function resetReplay() {
-            if (isPlaying) togglePlay();
-            currentReplayDay = 0;
-            updateAllViews();
-        }
-
-        function onSliderMove() {
-            currentReplayDay = parseInt(document.getElementById('replay-slider').value);
-            updateAllViews();
-        }
-
-        function openDrawer(type) {
-            document.getElementById('drawer-overlay').classList.add('open');
-            document.getElementById('explain-drawer').classList.add('open');
-        }
-
-        function closeDrawer() {
-            document.getElementById('drawer-overlay').classList.remove('open');
-            document.getElementById('explain-drawer').classList.remove('open');
-        }
-    </script>
+function onReplayChange() {
+    document.getElementById('g-replay-date').textContent = curDate();
+    document.getElementById('g-replay-day').textContent = S.replayDay + 1;
+    document.getElementById('replay-slider').value = S.replayDay;
+    renderMarkers();
+}
+</script>
 </body>
 </html>
