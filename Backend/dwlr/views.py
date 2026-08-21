@@ -811,6 +811,124 @@ def prototype_showcase_view(request):
     })
 
 
+@api_view(["GET"])
+def ml_registry_view(request):
+    from .services.adapters.dare_ai_adapter import DareGroundwaterAIAdapter
+    return Response(DareGroundwaterAIAdapter.registry())
+
+
+@api_view(["GET", "POST"])
+def ml_run_view(request):
+    from .services.adapters.dare_ai_adapter import DareGroundwaterAIAdapter
+    from .services.forecast_engine import forecast_station
+    from .services.jalnetra.trust_engine import evaluate_station_trust
+
+    payload = request.data if request.method == "POST" and isinstance(request.data, dict) else request.GET
+    model_id = str(payload.get("model", payload.get("model_id", "ai_ensemble_forecast"))).strip()
+    station_id = str(payload.get("station_id", "DWLR-001")).strip()
+    horizon = int(payload.get("horizon", 30))
+    include_synthetic = str(payload.get("include_synthetic", "1")).lower() in ["1", "true", "yes"]
+
+    df = _load_df(include_synthetic=include_synthetic)
+    if df.empty:
+        return Response({"status": "NO_DATA", "error": "No records available for ML run."}, status=404)
+
+    if station_id not in set(df["station_id"].astype(str)):
+        station_id = str(df["station_id"].iloc[0])
+    station_df = df[df["station_id"].astype(str) == station_id].sort_values("date")
+    if station_df.empty:
+        return Response({"status": "NO_DATA", "error": "Station has no observations."}, status=404)
+
+    if model_id in ["ai_ensemble_forecast", "dare_ai", "ensemble"]:
+        result = DareGroundwaterAIAdapter.forecast(station_df, station_id=station_id, horizon=horizon)
+    elif model_id in ["ridge", "ridge_forecast"]:
+        result = forecast_station(
+            series=station_df["water_level_m"].values,
+            station_id=station_id,
+            model_name="ridge",
+            horizon=horizon,
+            full_df=df
+        )
+        result["input_data"] = {
+            "records_used": int(len(station_df)),
+            "source": "CGWB_PUBLIC_ARCGIS" if bool(station_df.get("is_live_source", pd.Series(dtype=bool)).fillna(False).sum()) else "DWLR_MODEL_LAB",
+            "date_range": {"start": str(station_df["date"].min()), "end": str(station_df["date"].max())},
+        }
+    elif model_id in ["st_gnn", "stgnn", "gnn"]:
+        result = forecast_station(
+            series=station_df["water_level_m"].values,
+            station_id=station_id,
+            model_name="st_gnn",
+            horizon=horizon,
+            full_df=df
+        )
+        result["input_data"] = {
+            "records_used": int(len(station_df)),
+            "source": "CGWB_PUBLIC_ARCGIS" if bool(station_df.get("is_live_source", pd.Series(dtype=bool)).fillna(False).sum()) else "DWLR_MODEL_LAB",
+            "date_range": {"start": str(station_df["date"].min()), "end": str(station_df["date"].max())},
+        }
+    elif model_id in ["trust", "trust_score"]:
+        result = evaluate_station_trust(station_df, station_id, full_df=df)
+        result["input_data"] = {
+            "records_used": int(len(station_df)),
+            "source": "CGWB_PUBLIC_ARCGIS" if bool(station_df.get("is_live_source", pd.Series(dtype=bool)).fillna(False).sum()) else "DWLR_MODEL_LAB",
+            "date_range": {"start": str(station_df["date"].min()), "end": str(station_df["date"].max())},
+        }
+    else:
+        return Response({
+            "status": "UNKNOWN_MODEL",
+            "model": model_id,
+            "available_models": ["ai_ensemble_forecast", "ridge_forecast", "st_gnn", "trust_score"],
+        }, status=400)
+
+    return Response({
+        "status": result.get("status", "VERIFIED"),
+        "requested_model": model_id,
+        "selected_station": station_id,
+        "horizon": horizon,
+        "result": result,
+    })
+
+
+@api_view(["GET"])
+def ml_briefing_view(request):
+    from .services.adapters.dare_ai_adapter import DareGroundwaterAIAdapter
+    from .services.live_sources import source_status
+
+    station_id = request.GET.get("station_id", "DWLR-001")
+    horizon = int(request.GET.get("horizon", 30))
+    df = _load_df(include_synthetic=True)
+    if df.empty:
+        return Response({"status": "NO_DATA", "briefing": "No groundwater observations are available."}, status=404)
+
+    if station_id not in set(df["station_id"].astype(str)):
+        station_id = str(df["station_id"].iloc[0])
+    station_df = df[df["station_id"].astype(str) == station_id].sort_values("date")
+    ai = DareGroundwaterAIAdapter.forecast(station_df, station_id=station_id, horizon=horizon)
+    sources = source_status()
+    risk = ai.get("risk", {})
+    input_data = ai.get("input_data", {})
+
+    briefing = (
+        f"AI run used {input_data.get('records_used', 0)} observations for station {station_id} "
+        f"from {input_data.get('source', 'UNKNOWN_SOURCE')} covering "
+        f"{input_data.get('date_range', {}).get('start')} to {input_data.get('date_range', {}).get('end')}. "
+        f"The ensemble selected {ai.get('best_model', 'N/A')} as the strongest validation model and classified "
+        f"the next {horizon} days as {risk.get('label', 'UNKNOWN')} with max predicted depth "
+        f"{risk.get('max_predicted_depth_m', 'N/A')}m. "
+        f"System currently contains {sources.get('live_records', 0)} CGWB public-source rows and "
+        f"{sources.get('synthetic_records', 0)} DWLR model-lab rows."
+    )
+
+    return Response({
+        "status": ai.get("status", "VERIFIED"),
+        "station_id": station_id,
+        "briefing": briefing,
+        "ai_result": ai,
+        "sources": sources,
+    })
+
+
 def command_center_view(request):
     from django.shortcuts import render
     return render(request, 'command_center.html')

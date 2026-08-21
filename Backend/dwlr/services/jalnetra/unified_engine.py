@@ -81,11 +81,22 @@ def run_unified_decision_pipeline(
     opt_res, _ = execute_optimization(optimizer_payload)
 
     # 7. SYNTHESIZE: Unified Executive Recommendation
+    if top_region:
+        priority_sentence = (
+            f"Highest intervention priority is {top_region['region_id']} ({top_region['region_name']}) "
+            f"with priority score {top_region['priority_score']}/100. "
+        )
+    else:
+        priority_sentence = (
+            "No intervention region met the ranking threshold for the selected data window; "
+            "continue trust, forecast, and monitoring checks before allocating field teams. "
+        )
+
     exec_summary = (
         f"Basin telemetry covers {len(station_ids)} DWLR stations with an average data trust score of {avg_trust}/100 "
         f"({trusted_count}/{len(station_ids)} stations fully trusted). "
         f"{len(incidents)} active regional stress incident(s) detected. "
-        f"Highest intervention priority is {top_region['region_id']} ({top_region['region_name']}) with priority score {top_region['priority_score']}/100. "
+        f"{priority_sentence}"
         f"MODFLOW 6 physics scenario confirms {scenario_pumping_reduction_pct}% pumping reduction recovers hydraulic head by {modflow_res.get('max_drawdown_recovery_m', 0.88)}m. "
         f"OR-Tools selected {len(opt_res.get('selected_interventions', []))} optimal interventions allocating INR {opt_res.get('budget_used', 0):,} under INR {budget:,} budget."
     )

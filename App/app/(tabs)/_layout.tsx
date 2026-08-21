@@ -48,6 +48,13 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="explore"
+        options={{
+          title: 'AI Lab',
+          tabBarIcon: ({ color }) => <Ionicons name="hardware-chip" size={24} color={color} />,
+        }}
+      />
+      <Tabs.Screen
         name="settings"
         options={{
           title: 'Settings',

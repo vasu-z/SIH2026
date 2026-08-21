@@ -1,0 +1,3 @@
+[submodule "external_repos/groundwater_deeplearning"]
+	path = external_repos/groundwater_deeplearning
+	url = https://github.com/DARE-ML/groundwater_deeplearning.git

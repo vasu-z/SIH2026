@@ -92,8 +92,112 @@ export type PrototypeShowcase = {
   explainability: string[];
 };
 
+export type LiveSources = {
+  mode: string;
+  total_records: number;
+  live_records: number;
+  synthetic_records: number;
+  latest_live_record?: string | null;
+  available_sources?: Array<{ name: string; status: string; endpoint?: string }>;
+};
+
+export type DataExplorerResponse = {
+  status: string;
+  database: string;
+  total_records: number;
+  matching_records: number;
+  page: number;
+  page_size: number;
+  total_pages: number;
+  records: WaterQualityData[];
+  all_stations: string[];
+};
+
+export type MlRegistry = {
+  status: string;
+  external_repository: {
+    name: string;
+    repo_url: string;
+    available: boolean;
+    notebook: string | null;
+    data_file_count: number;
+    role: string;
+    production_policy: string;
+  };
+  models: Array<{
+    id: string;
+    name: string;
+    family: string;
+    role: string;
+    input: string;
+    endpoint: string;
+    availability: string;
+  }>;
+};
+
+export type MlRunResponse = {
+  status: string;
+  requested_model: string;
+  selected_station: string;
+  horizon: number;
+  result: {
+    status: string;
+    model?: string;
+    best_model?: string;
+    input_data?: {
+      records_used?: number;
+      usable_training_rows?: number;
+      source?: string;
+      live_rows?: number;
+      date_range?: { start?: string | null; end?: string | null };
+      features?: string[];
+    };
+    leaderboard?: Array<{ model: string; mae?: number; rmse?: number; r2?: number; status?: string }>;
+    ensemble_members?: Array<{ model: string; weight: number }>;
+    risk?: {
+      label: string;
+      max_predicted_depth_m: number;
+      change_over_horizon_m: number;
+    };
+    forecast?: number[];
+    p50?: number[];
+    trust_score?: number;
+    classification?: string;
+    fallback_applied?: boolean;
+    reason?: string;
+  };
+};
+
+export type MlBriefing = {
+  status: string;
+  station_id: string;
+  briefing: string;
+  ai_result: MlRunResponse['result'];
+  sources: LiveSources;
+};
+
+export type UnifiedDecision = {
+  pipeline: string;
+  status: string;
+  latency_seconds: number;
+  executive_summary: string;
+  decision_flow: Record<string, unknown>;
+};
+
 export async function apiGet<T>(path: string): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`);
+  if (!response.ok) {
+    throw new Error(`API ${response.status}: ${await response.text()}`);
+  }
+  return response.json();
+}
+
+export async function apiPost<T>(path: string, body: Record<string, unknown> = {}): Promise<T> {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
   if (!response.ok) {
     throw new Error(`API ${response.status}: ${await response.text()}`);
   }
